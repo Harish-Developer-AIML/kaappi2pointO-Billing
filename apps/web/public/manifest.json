@@ -1,14 +1,14 @@
 {
-  "name": "Nodedr OrderRestro",
-  "short_name": "OrderRestro",
+  "name": "Kaappi Biller",
+  "short_name": "Kaappi Biller",
   "description": "Offline-first restaurant management system — POS, tables, kitchen display, menu, inventory.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone"],
   "orientation": "any",
-  "background_color": "#0f0f11",
-  "theme_color": "#9f1239",
+  "background_color": "#f3e6d3",
+  "theme_color": "#6f4e37",
   "lang": "en",
   "categories": ["business", "food", "productivity"],
   "icons": [

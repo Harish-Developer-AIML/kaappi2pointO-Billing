@@ -37,11 +37,10 @@ export function MarketingFooter() {
           <div>
             <Link href="/" className="flex items-center gap-2.5">
               <Logo size={28} />
-              <span className="text-sm font-semibold text-foreground">OrderRestro</span>
+              <span className="text-sm font-semibold text-foreground">Kaappi Biller</span>
             </Link>
             <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-              Offline-first restaurant management, self-hosted on your own
-              server. Built by Nodedr Infotech Private Limited.
+              Offline-first restaurant billing, self-hosted on your own server.
             </p>
           </div>
 
@@ -68,7 +67,9 @@ export function MarketingFooter() {
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border/60 pt-6 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} Nodedr Infotech Private Limited. Licensed AGPL-3.0.
+            {/* Keep the upstream copyright and licence notice: AGPL-3.0 requires
+                preserving it for the original work this app is built on. */}
+            Kaappi Biller &middot; Based on Nodedr OrderRestro, &copy; Nodedr Infotech Private Limited. Licensed AGPL-3.0.
           </p>
           <p className="text-xs text-muted-foreground">Made in India.</p>
         </div>

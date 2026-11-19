@@ -18,8 +18,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
     display: "fullscreen",
     display_override: ["fullscreen", "standalone"],
     orientation: "landscape",
-    background_color: "#fbf9f8",
-    theme_color: "#9f1239",
+    background_color: "#f3e6d3",
+    theme_color: "#6f4e37",
     lang: "es",
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },

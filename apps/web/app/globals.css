@@ -51,78 +51,80 @@
 }
 
 :root {
-  /* Nodedr OrderRestro — light palette. See DESIGN_SYSTEM.md for rationale
-     (wine/burgundy primary is the one deliberate accent choice). */
-  --background: #FBF9F8;
-  --foreground: #111827;
-  --card: #FFFFFF;
-  --card-foreground: #111827;
-  --popover: #FFFFFF;
-  --popover-foreground: #111827;
-  --primary: #9F1239;
-  --primary-foreground: #FFFFFF;
-  --secondary: #F5F1F0;
-  --secondary-foreground: #111827;
-  --muted: #F5F1F0;
-  --muted-foreground: #6B7280;
-  --accent: #FDF2F4;
-  --accent-foreground: #9F1239;
-  --destructive: #EF4444;
+  /* Kaappi Biller — light palette: warm cream surfaces (the brand swatch is
+     #F0E2CE) with a coffee-brown accent. Every text/surface pair meets WCAG AA
+     (4.5:1); see the contrast notes beside each colour. */
+  --background: #F3E6D3;          /* cream, from the brand swatch */
+  --foreground: #2B1D14;          /* espresso, 13.3:1 on background */
+  --card: #FFFBF5;                /* warm white, lifts cards off the cream */
+  --card-foreground: #2B1D14;
+  --popover: #FFFBF5;
+  --popover-foreground: #2B1D14;
+  --primary: #6F4E37;             /* coffee brown */
+  --primary-foreground: #FFF8EE;  /* 7.1:1 on primary */
+  --secondary: #EADBC5;
+  --secondary-foreground: #2B1D14;
+  --muted: #EADBC5;
+  --muted-foreground: #6E5A49;    /* 5.3:1 on background, 4.8:1 on muted */
+  --accent: #EADBC5;
+  --accent-foreground: #5A3E2B;   /* 7.2:1 on accent */
+  --destructive: #DC2626;
   --success: #22C55E;
   --warning: #F59E0B;
-  --border: #ECE6E4;
-  --input: #E4DCDA;
-  --ring: #9F1239;
-  --chart-1: #9F1239;
+  --border: #E2D2BB;
+  --input: #D9C7AE;
+  --ring: #6F4E37;
+  --chart-1: #6F4E37;
   --chart-2: #22C55E;
   --chart-3: #F59E0B;
   --chart-4: #6366F1;
-  --chart-5: #6B7280;
+  --chart-5: #8B7765;
   --radius: 1rem;
-  --sidebar: #FFFDFC;
-  --sidebar-foreground: #111827;
-  --sidebar-primary: #9F1239;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #FDF2F4;
-  --sidebar-accent-foreground: #9F1239;
-  --sidebar-border: #ECE6E4;
-  --sidebar-ring: #9F1239;
+  --sidebar: #EFE0CA;             /* a shade deeper than the page cream */
+  --sidebar-foreground: #2B1D14;
+  --sidebar-primary: #6F4E37;
+  --sidebar-primary-foreground: #FFF8EE;
+  --sidebar-accent: #E5D3B9;
+  --sidebar-accent-foreground: #5A3E2B;
+  --sidebar-border: #E2D2BB;
+  --sidebar-ring: #6F4E37;
 }
 
 .dark {
-  --background: #0B0B0D;
-  --foreground: #F4F4F5;
-  --card: #151517;
-  --card-foreground: #F4F4F5;
-  --popover: #151517;
-  --popover-foreground: #F4F4F5;
-  --primary: #FB7185;
-  --primary-foreground: #1F0A0F;
-  --secondary: #1D1D20;
-  --secondary-foreground: #F4F4F5;
-  --muted: #1D1D20;
-  --muted-foreground: #9CA3AF;
-  --accent: #2A151A;
-  --accent-foreground: #FB7185;
+  /* Dark palette: espresso surfaces with a latte accent. */
+  --background: #17110D;
+  --foreground: #F5EBDD;          /* 15.9:1 on background */
+  --card: #211913;
+  --card-foreground: #F5EBDD;
+  --popover: #211913;
+  --popover-foreground: #F5EBDD;
+  --primary: #D4A574;             /* latte, 8.4:1 on background */
+  --primary-foreground: #2A1A0E;  /* 7.5:1 on primary */
+  --secondary: #2A2019;
+  --secondary-foreground: #F5EBDD;
+  --muted: #2A2019;
+  --muted-foreground: #B5A493;    /* 7.2:1 on card */
+  --accent: #33261C;
+  --accent-foreground: #E6BE8A;   /* 8.4:1 on accent */
   --destructive: #F87171;
   --success: #34D399;
   --warning: #FBBF24;
-  --border: #26262A;
-  --input: #26262A;
-  --ring: #FB7185;
-  --chart-1: #FB7185;
+  --border: #352A21;
+  --input: #3A2E24;
+  --ring: #D4A574;
+  --chart-1: #D4A574;
   --chart-2: #34D399;
   --chart-3: #FBBF24;
   --chart-4: #818CF8;
-  --chart-5: #9CA3AF;
-  --sidebar: #111113;
-  --sidebar-foreground: #F4F4F5;
-  --sidebar-primary: #FB7185;
-  --sidebar-primary-foreground: #1F0A0F;
-  --sidebar-accent: #2A151A;
-  --sidebar-accent-foreground: #FB7185;
-  --sidebar-border: #26262A;
-  --sidebar-ring: #FB7185;
+  --chart-5: #B5A493;
+  --sidebar: #140F0B;
+  --sidebar-foreground: #F5EBDD;
+  --sidebar-primary: #D4A574;
+  --sidebar-primary-foreground: #2A1A0E;
+  --sidebar-accent: #33261C;
+  --sidebar-accent-foreground: #E6BE8A;
+  --sidebar-border: #352A21;
+  --sidebar-ring: #D4A574;
 }
 
 /* Customer kiosk (/kiosk/*): always the light palette, whatever the device's
@@ -131,26 +133,26 @@
    utilities are unaffected. */
 .kiosk-root {
   color-scheme: light;
-  --background: #FBF9F8;
-  --foreground: #111827;
-  --card: #FFFFFF;
-  --card-foreground: #111827;
-  --popover: #FFFFFF;
-  --popover-foreground: #111827;
-  --primary: #9F1239;
-  --primary-foreground: #FFFFFF;
-  --secondary: #F5F1F0;
-  --secondary-foreground: #111827;
-  --muted: #F5F1F0;
-  --muted-foreground: #4B5563;
-  --accent: #FDF2F4;
-  --accent-foreground: #9F1239;
+  --background: #F3E6D3;
+  --foreground: #2B1D14;
+  --card: #FFFBF5;
+  --card-foreground: #2B1D14;
+  --popover: #FFFBF5;
+  --popover-foreground: #2B1D14;
+  --primary: #6F4E37;
+  --primary-foreground: #FFF8EE;
+  --secondary: #EADBC5;
+  --secondary-foreground: #2B1D14;
+  --muted: #EADBC5;
+  --muted-foreground: #5C4A3B;    /* darker than the dashboard's, for reading at a distance */
+  --accent: #EADBC5;
+  --accent-foreground: #5A3E2B;
   --destructive: #B91C1C;
   --success: #15803D;
   --warning: #B45309;
-  --border: #D9CFCC;
-  --input: #C9BDBA;
-  --ring: #9F1239;
+  --border: #D6C3A8;
+  --input: #C7B193;
+  --ring: #6F4E37;
   /* Explicit system fallbacks so the kiosk never renders in a serif face if the
      bundled web font is unavailable (offline start-up, blocked fonts CDN). */
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, "Segoe UI", Roboto,
@@ -236,14 +238,14 @@
    rules would silently beat every utility class.
    --------------------------------------------------------------------------- */
 :root {
-  --shadow-card: 0 1px 2px rgb(17 24 39 / 0.04), 0 8px 24px -12px rgb(76 14 34 / 0.10);
-  --shadow-card-hover: 0 2px 4px rgb(17 24 39 / 0.05), 0 16px 32px -14px rgb(76 14 34 / 0.18);
-  --gradient-primary: linear-gradient(135deg, #B3163F 0%, #9F1239 45%, #7A0E2C 100%);
+  --shadow-card: 0 1px 2px rgb(43 29 20 / 0.05), 0 8px 24px -12px rgb(74 52 36 / 0.16);
+  --shadow-card-hover: 0 2px 4px rgb(43 29 20 / 0.06), 0 16px 32px -14px rgb(74 52 36 / 0.24);
+  --gradient-primary: linear-gradient(135deg, #8A6448 0%, #6F4E37 45%, #563A28 100%);
 }
 .dark {
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px -14px rgb(0 0 0 / 0.6);
-  --shadow-card-hover: 0 2px 4px rgb(0 0 0 / 0.45), 0 18px 36px -14px rgb(251 113 133 / 0.18);
-  --gradient-primary: linear-gradient(135deg, #FB7185 0%, #F43F5E 55%, #E11D48 100%);
+  --shadow-card-hover: 0 2px 4px rgb(0 0 0 / 0.45), 0 18px 36px -14px rgb(212 165 116 / 0.18);
+  --gradient-primary: linear-gradient(135deg, #E0B585 0%, #D4A574 55%, #B8865A 100%);
 }
 
 @layer base {
