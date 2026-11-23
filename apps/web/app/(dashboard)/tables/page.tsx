@@ -3,6 +3,7 @@
 import { LayoutGrid, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AddFloorDialog } from "@/components/tables/add-floor-dialog";
+import { DeleteFloorButton } from "@/components/tables/delete-floor-button";
 import { EditableTableTile } from "@/components/tables/editable-table-tile";
 import { RenameFloorDialog } from "@/components/tables/rename-floor-dialog";
 import { TableEditorDialog } from "@/components/tables/table-editor-dialog";
@@ -18,6 +19,7 @@ import { TableRequestsBar } from "@/components/tables/table-requests-bar";
 import { hasPermission, useCurrentUser } from "@/hooks/use-auth";
 import { useBranch } from "@/hooks/use-branch";
 import { useFloors, type RestaurantTable } from "@/hooks/use-tables";
+import { cn } from "@/lib/utils";
 
 export default function TablesPage() {
   const { branchId } = useBranch();
@@ -91,7 +93,7 @@ export default function TablesPage() {
           <h1 className="text-[32px] font-semibold tracking-tight text-foreground">Tables</h1>
           <p className="text-sm text-muted-foreground">
             {editMode
-              ? "Drag tables to match your floor — changes save automatically"
+              ? "Drag a table to move it. Tap a table to edit or delete it."
               : "Live floor status — tap a table to update it"}
           </p>
         </div>
@@ -134,6 +136,15 @@ export default function TablesPage() {
                     floorId={activeFloor?.id ?? floors[0].id}
                     currentName={activeFloor?.name ?? floors[0].name}
                   />
+                  {activeFloor && (
+                    <DeleteFloorButton
+                      branchId={branchId}
+                      floorId={activeFloor.id}
+                      floorName={activeFloor.name}
+                      tableCount={activeFloor.tables.length}
+                      onDeleted={() => setActiveFloorId(undefined)}
+                    />
+                  )}
                   <AddFloorDialog branchId={branchId} />
                   <Button variant="outline" size="sm" onClick={openAddTable}>
                     <Plus className="h-4 w-4" />
@@ -143,50 +154,74 @@ export default function TablesPage() {
               )}
             </div>
 
-            <Card ref={cardRef} className="overflow-auto p-3 sm:p-6">
-              <div
-                className="relative"
-                style={
-                  fitScale < 1
-                    ? { width: availableWidth, height: (canvasHeight - 40) * fitScale + 24 }
-                    : { width: canvasWidth, height: canvasHeight, minWidth: "100%" }
-                }
-              >
-                <div
-                  className="absolute left-0 top-0 origin-top-left"
-                  style={{ width: canvasWidth, height: canvasHeight, transform: fitScale < 1 ? `scale(${fitScale})` : undefined }}
-                >
-                {activeFloor?.tables.map((table) =>
-                  editMode ? (
-                    <EditableTableTile
-                      key={table.id}
-                      table={table}
-                      branchId={branchId}
-                      onEdit={() => openEditTable(table)}
-                    />
-                  ) : (
-                    <TableTile
-                      key={table.id}
-                      table={table}
-                      allTables={allTables}
-                      branchId={branchId}
-                      style={{
-                        left: table.posX,
-                        top: table.posY,
-                        width: table.width,
-                        height: table.height,
-                      }}
-                    />
-                  ),
+            {activeFloor && activeFloor.tables.length === 0 ? (
+              // Centred on the page; inside the floor-plan canvas it sat off to
+              // the right and was cut off on phones.
+              <Card className="flex flex-col items-center gap-3 p-10 text-center">
+                <p className="text-base font-semibold text-foreground">No tables on this floor yet</p>
+                <p className="text-sm text-muted-foreground">
+                  {canManage ? "Add tables to start taking orders at them." : "Ask a manager to add tables."}
+                </p>
+                {canManage && (
+                  <Button className="h-11 font-semibold sm:h-9" onClick={() => { setEditMode(true); openAddTable(); }}>
+                    <Plus className="h-4 w-4" />
+                    Add table
+                  </Button>
                 )}
-                {activeFloor?.tables.length === 0 && (
-                  <p className="py-10 text-center text-sm text-muted-foreground">
-                    No tables on this floor yet.
-                  </p>
-                )}
+              </Card>
+            ) : (
+              <>
+              {/* Phones (view mode): a grid of full-size tiles. The floor plan,
+                  shrunk to fit a phone, made tables tiny and left a large empty
+                  area. Editing still uses the floor plan (positions). */}
+              {!editMode && (
+                <div className="grid grid-cols-2 gap-3 min-[420px]:grid-cols-3 md:hidden">
+                  {activeFloor?.tables.map((table) => (
+                    <TableTile key={table.id} table={table} allTables={allTables} branchId={branchId} layout="grid" />
+                  ))}
                 </div>
-              </div>
-            </Card>
+              )}
+              <Card ref={cardRef} className={cn("overflow-auto p-3 sm:p-6", !editMode && "max-md:hidden")}>
+                <div
+                  className="relative"
+                  style={
+                    fitScale < 1
+                      ? { width: availableWidth, height: (canvasHeight - 40) * fitScale + 24 }
+                      : { width: canvasWidth, height: canvasHeight, minWidth: "100%" }
+                  }
+                >
+                  <div
+                    className="absolute left-0 top-0 origin-top-left"
+                    style={{ width: canvasWidth, height: canvasHeight, transform: fitScale < 1 ? `scale(${fitScale})` : undefined }}
+                  >
+                  {activeFloor?.tables.map((table) =>
+                    editMode ? (
+                      <EditableTableTile
+                        key={table.id}
+                        table={table}
+                        branchId={branchId}
+                        onEdit={() => openEditTable(table)}
+                      />
+                    ) : (
+                      <TableTile
+                        key={table.id}
+                        table={table}
+                        allTables={allTables}
+                        branchId={branchId}
+                        style={{
+                          left: table.posX,
+                          top: table.posY,
+                          width: table.width,
+                          height: table.height,
+                        }}
+                      />
+                    ),
+                  )}
+                  </div>
+                </div>
+              </Card>
+              </>
+            )}
 
             <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
               <Legend color="bg-emerald-500" label="Available" />

@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CartLine } from "@/components/pos/cart-line";
 import type { RestaurantTable } from "@/hooks/use-tables";
+import { isFeatureEnabled } from "@/components/layout/nav-items";
 import { formatCurrency } from "@/lib/format";
 import { subtotalOf } from "@/lib/pricing-preview";
 
@@ -87,9 +88,11 @@ export function CartPanel({
           <TabsTrigger value="TAKEAWAY" className="flex-1">
             Takeaway
           </TabsTrigger>
-          <TabsTrigger value="DELIVERY" className="flex-1">
-            Delivery
-          </TabsTrigger>
+          {isFeatureEnabled("/delivery") && (
+            <TabsTrigger value="DELIVERY" className="flex-1">
+              Delivery
+            </TabsTrigger>
+          )}
         </TabsList>
       </Tabs>
 

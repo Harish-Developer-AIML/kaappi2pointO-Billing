@@ -1,5 +1,6 @@
 import { CalendarPlus, ChefHat, LayoutGrid, ShoppingCart, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
+import { isFeatureEnabled } from "@/components/layout/nav-items";
 import { Button } from "@/components/ui/button";
 
 const ACTIONS = [
@@ -16,7 +17,7 @@ const ACTIONS = [
 export function QuickActions() {
   return (
     <div className="flex flex-wrap gap-2">
-      {ACTIONS.map((action) => (
+      {ACTIONS.filter((action) => isFeatureEnabled(action.href)).map((action) => (
         <Button key={action.href} variant="outline" size="sm" nativeButton={false} render={<Link href={action.href} />}>
           <action.icon className="h-4 w-4" />
           {action.label}

@@ -47,7 +47,9 @@ export function SettingsTabs() {
   );
 
   return (
-    <nav className="flex gap-1 border-b border-border">
+    <nav className="-mx-1 flex min-w-0 gap-1 overflow-x-auto border-b border-border px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {/* Scrolls sideways on its own on narrow screens; without overflow-x-auto
+          the row of 10+ tabs widened the whole page and cut off the form. */}
       {visibleTabs.map((tab) => {
         const isActive =
           tab.href === "/settings" ? pathname === "/settings" : pathname?.startsWith(tab.href);
@@ -56,7 +58,7 @@ export function SettingsTabs() {
             key={tab.href}
             href={tab.href}
             className={cn(
-              "flex items-center gap-2 border-b-2 px-3 pb-3 text-sm font-medium transition-colors",
+              "flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 pb-3 text-sm font-medium transition-colors",
               isActive
                 ? "border-primary text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground",

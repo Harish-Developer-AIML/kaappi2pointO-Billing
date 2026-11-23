@@ -52,6 +52,15 @@ export function useCreateFloor(branchId: string | null) {
   });
 }
 
+/** Deletes a floor and its tables (refused by the server while any is occupied or reserved). */
+export function useDeleteFloor(branchId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/tables/floors/${id}?branchId=${branchId}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["floors", branchId] }),
+  });
+}
+
 export function useUpdateFloor(branchId: string | null) {
   const queryClient = useQueryClient();
   return useMutation({

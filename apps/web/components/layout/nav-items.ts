@@ -26,7 +26,11 @@ export interface NavItem {
   permission?: string;
 }
 
-export const NAV_ITEMS: NavItem[] = [
+/**
+ * Every screen with the permission it needs. Used for access checks (see
+ * app/(dashboard)/layout.tsx), so a turned-off screen keeps its permission.
+ */
+export const ALL_NAV_ITEMS: NavItem[] = [
   { labelKey: "nav.dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "dashboard.sales.view" },
   { labelKey: "nav.pos", href: "/pos", icon: ShoppingCart, permission: "orders.create" },
   { labelKey: "nav.orders", href: "/orders", icon: ClipboardList, permission: "orders.create" },
@@ -50,3 +54,23 @@ export const NAV_ITEMS: NavItem[] = [
   { labelKey: "nav.attendance", href: "/attendance", icon: Clock },
   { labelKey: "nav.settings", href: "/settings", icon: Settings, permission: "settings.manage" },
 ];
+
+/**
+ * Screens turned OFF in the app (their code and data stay; nothing is deleted).
+ * They disappear from the sidebar, the bottom tab bar and the dashboard
+ * shortcuts, and opening their address sends the user to their first screen.
+ * To turn one back on, delete its line.
+ */
+export const DISABLED_FEATURES: readonly string[] = [
+  "/reservations",
+  "/kds", // Kitchen Display
+  "/delivery",
+];
+
+/** False for a turned-off screen (or any page under it). */
+export function isFeatureEnabled(href: string): boolean {
+  return !DISABLED_FEATURES.some((d) => href === d || href.startsWith(`${d}/`));
+}
+
+/** The screens shown in menus: everything that isn't turned off. */
+export const NAV_ITEMS: NavItem[] = ALL_NAV_ITEMS.filter((item) => isFeatureEnabled(item.href));

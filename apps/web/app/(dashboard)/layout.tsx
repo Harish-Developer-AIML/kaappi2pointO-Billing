@@ -6,7 +6,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { useCurrentUser } from "@/hooks/use-auth";
 import { BranchProvider, useBranch } from "@/hooks/use-branch";
 import { useRealtime } from "@/hooks/use-realtime";
-import { NAV_ITEMS } from "@/components/layout/nav-items";
+import { ALL_NAV_ITEMS, NAV_ITEMS, isFeatureEnabled } from "@/components/layout/nav-items";
 import { canOpen, firstAllowedHref } from "@/lib/route-access";
 
 // Subscribes every route in this layout group to realtime push (order/KOT/
@@ -28,7 +28,11 @@ export default function DashboardGroupLayout({ children }: { children: React.Rea
   const pathname = usePathname();
   const { data, isLoading, isError } = useCurrentUser();
   const permissions = data?.user.permissions;
-  const allowed = !permissions || canOpen(pathname ?? "", permissions, NAV_ITEMS);
+  // Permissions come from every screen (a turned-off screen still needs its
+  // permission); turned-off screens are then closed to everyone.
+  const allowed =
+    isFeatureEnabled(pathname ?? "") &&
+    (!permissions || canOpen(pathname ?? "", permissions, ALL_NAV_ITEMS));
   const fallback = permissions ? firstAllowedHref(permissions, NAV_ITEMS) : undefined;
 
   useEffect(() => {

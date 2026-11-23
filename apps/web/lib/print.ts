@@ -25,6 +25,42 @@ function getPrintFrame(): HTMLIFrameElement {
   return frame;
 }
 
+/**
+ * Inside the Kaappi Biller Android app, window.print() does nothing (Android's
+ * WebView has no print dialog). The app exposes this bridge instead: it loads
+ * the URL and opens Android's print screen (any installed printer, or "Save as
+ * PDF" to download the bill). See apps/android/src/.../PrintBridge.java.
+ */
+interface AndroidPrintBridge {
+  printUrl(url: string, jobName: string): void;
+}
+
+function androidBridge(): AndroidPrintBridge | null {
+  if (typeof window === "undefined") return null;
+  const bridge = (window as unknown as { KaappiAndroid?: AndroidPrintBridge }).KaappiAndroid;
+  return bridge && typeof bridge.printUrl === "function" ? bridge : null;
+}
+
+function printPage(path: string, jobName: string) {
+  const bridge = androidBridge();
+  if (bridge) {
+    bridge.printUrl(new URL(path, window.location.origin).toString(), jobName);
+    return;
+  }
+  const frame = getPrintFrame();
+  frame.onload = () => {
+    const win = frame.contentWindow;
+    if (!win) return;
+    try {
+      win.focus();
+      win.print();
+    } catch {
+      win.postMessage("print", "*");
+    }
+  };
+  frame.src = path;
+}
+
 /** Bill figures the cashier has typed but not yet saved (see receipt route). */
 export type BillQuery = Record<string, string | number | undefined>;
 
@@ -39,32 +75,13 @@ export function billQueryString(adj: BillQuery = {}): string {
 
 /** Browser print of the bill (open order) or receipt (paid order). Read-only. */
 export function openReceiptPrint(orderId: string, branchId: string, adj: BillQuery = {}) {
-  const frame = getPrintFrame();
-  frame.onload = () => {
-    const win = frame.contentWindow;
-    if (!win) return;
-    try {
-      win.focus();
-      win.print();
-    } catch {
-      win.postMessage("print", "*");
-    }
-  };
-  // Force a reload even if printing the same order twice in a row.
-  frame.src = `/api/v1/orders/${orderId}/receipt?branchId=${branchId}${billQueryString(adj)}&t=${Date.now()}`;
+  // `t` forces a reload even if printing the same order twice in a row.
+  printPage(
+    `/api/v1/orders/${orderId}/receipt?branchId=${branchId}${billQueryString(adj)}&t=${Date.now()}`,
+    `Bill ${orderId.slice(-6)}`,
+  );
 }
 
 export function openKotPrint(orderId: string, branchId: string) {
-  const frame = getPrintFrame();
-  frame.onload = () => {
-    const win = frame.contentWindow;
-    if (!win) return;
-    try {
-      win.focus();
-      win.print();
-    } catch {
-      win.postMessage("print", "*");
-    }
-  };
-  frame.src = `/api/v1/orders/${orderId}/kot?branchId=${branchId}&t=${Date.now()}`;
+  printPage(`/api/v1/orders/${orderId}/kot?branchId=${branchId}&t=${Date.now()}`, `Kitchen ticket ${orderId.slice(-6)}`);
 }

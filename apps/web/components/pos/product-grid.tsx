@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { QueryError } from "@/components/ui/query-error";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ResponsiveTabs } from "@/components/ui/nav-picker";
 import { useCategories, useMenuItems, type MenuItem } from "@/hooks/use-menu";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -33,15 +32,35 @@ export function ProductGrid({
       />
 
       {categories && categories.length > 0 && (
-        <ResponsiveTabs
-          mobileOnly
-          className="lg:hidden"
-          label="Category"
-          value={activeCategoryId ?? "all"}
-          onChange={(id) => setActiveCategoryId(id === "all" ? undefined : id)}
-          desktopListClassName="justify-start lg:h-auto lg:flex-wrap"
-          items={[{ id: "all", label: "All" }, ...categories.map((c) => ({ id: c.id, label: c.name, hint: `${c._count.items} items` }))]}
-        />
+        // Phones and tablets: one swipeable row of large category chips, one
+        // tap to switch. (Was a dropdown: two taps and a small list.)
+        <nav
+          aria-label="Category"
+          className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] lg:hidden [&::-webkit-scrollbar]:hidden"
+        >
+          {[{ id: undefined as string | undefined, name: "All", count: undefined as number | undefined }, ...categories.map((c) => ({ id: c.id as string | undefined, name: c.name, count: c._count.items as number | undefined }))].map((c) => {
+            const active = c.id === activeCategoryId;
+            return (
+              <button
+                key={c.id ?? "all"}
+                type="button"
+                aria-current={active ? "true" : undefined}
+                onClick={() => setActiveCategoryId(c.id)}
+                className={cn(
+                  "flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-4 text-[15px] transition-colors",
+                  active
+                    ? "border-primary bg-primary font-semibold text-primary-foreground shadow-sm"
+                    : "border-border bg-card font-medium text-foreground active:bg-secondary",
+                )}
+              >
+                {c.name}
+                {c.count !== undefined && (
+                  <span className={cn("text-xs tabular-nums", active ? "opacity-80" : "text-muted-foreground")}>{c.count}</span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
       )}
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:gap-5">

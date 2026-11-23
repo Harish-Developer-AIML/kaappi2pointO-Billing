@@ -197,7 +197,7 @@ export function AddItemDialog({
           <div className="flex flex-col gap-2">
             <Label>Category</Label>
             <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? "")}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
@@ -257,7 +257,7 @@ export function AddItemDialog({
           <div className="flex flex-col gap-2">
             <Label>Kitchen station</Label>
             <Select value={stationId} onValueChange={(v) => setStationId(v ?? "")}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="None" />
               </SelectTrigger>
               <SelectContent>

@@ -23,9 +23,12 @@ import { Switch } from "@/components/ui/switch";
 import {
   useBulkCreateTables,
   useCreateTable,
+  useDeleteTable,
   useUpdateTable,
   type RestaurantTable,
 } from "@/hooks/use-tables";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Trash2 } from "lucide-react";
 import { ApiError } from "@/lib/api";
 
 export function TableEditorDialog({
@@ -42,6 +45,19 @@ export function TableEditorDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const isEdit = !!table;
+  const deleteTable = useDeleteTable(branchId);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const onDelete = () => {
+    if (!table) return;
+    deleteTable.mutate(table.id, {
+      onSuccess: () => {
+        toast.success(`${table.name ?? `Table ${table.number}`} deleted`);
+        setConfirmDelete(false);
+        onOpenChange(false);
+      },
+      onError: (err) => toast.error(err instanceof ApiError ? err.message : "Could not delete the table"),
+    });
+  };
   const [number, setNumber] = useState(table?.number ?? "");
   const [name, setName] = useState(table?.name ?? "");
   const [capacity, setCapacity] = useState(String(table?.capacity ?? 4));
@@ -236,7 +252,7 @@ export function TableEditorDialog({
             <div className="flex flex-col gap-2">
               <Label>Shape</Label>
               <Select value={shape} onValueChange={(v) => setShape(v as typeof shape)}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -247,8 +263,19 @@ export function TableEditorDialog({
               </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button type="submit" disabled={isPending}>
+          <DialogFooter className="gap-2">
+            {isEdit && (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 text-destructive sm:mr-auto sm:h-9"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete table
+              </Button>
+            )}
+            <Button type="submit" className="h-11 font-semibold sm:h-9" disabled={isPending}>
               {isPending
                 ? "Saving…"
                 : isEdit
@@ -260,6 +287,17 @@ export function TableEditorDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+      {table && (
+        <ConfirmDialog
+          open={confirmDelete}
+          onOpenChange={setConfirmDelete}
+          title={`Delete ${table.name ?? `Table ${table.number}`}?`}
+          description="Its past bills are kept. A table with a running bill or a reservation can't be deleted."
+          confirmLabel="Delete table"
+          pending={deleteTable.isPending}
+          onConfirm={onDelete}
+        />
+      )}
     </Dialog>
   );
 }

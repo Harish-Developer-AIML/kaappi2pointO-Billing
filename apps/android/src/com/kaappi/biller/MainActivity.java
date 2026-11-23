@@ -115,6 +115,8 @@ public class MainActivity extends Activity implements ServerService.Observer {
         s.setSupportZoom(false);
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setUserAgentString(s.getUserAgentString() + " KaappiBillerAndroid/1.0");
+        // Bills and kitchen tickets: window.KaappiAndroid.printUrl (apps/web/lib/print.ts).
+        webView.addJavascriptInterface(new PrintBridge(this, this::currentServer), "KaappiAndroid");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false);
 

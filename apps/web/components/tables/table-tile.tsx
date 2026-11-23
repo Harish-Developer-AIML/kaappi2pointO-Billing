@@ -31,11 +31,14 @@ export function TableTile({
   allTables,
   branchId,
   style,
+  layout = "floor",
 }: {
   table: RestaurantTable;
   allTables: RestaurantTable[];
   branchId: string | null;
   style?: React.CSSProperties;
+  /** "floor": placed on the floor plan (absolute). "grid": a full-size tile in a grid (phones). */
+  layout?: "floor" | "grid";
 }) {
   const router = useRouter();
   const updateStatus = useUpdateTableStatus(branchId);
@@ -51,11 +54,13 @@ export function TableTile({
           aria-label={`${table.name ?? `T${table.number}`}: ${STATUS_LABEL[table.status]}, ${table.capacity} seats`}
           className={cn(
             TABLE_TILE_BASE,
-            "absolute gap-0.5 overflow-hidden pt-1 hover:-translate-y-0.5 hover:shadow-md",
+            layout === "floor"
+              ? "absolute gap-0.5 overflow-hidden pt-1 hover:-translate-y-0.5 hover:shadow-md"
+              : "min-h-32 w-full overflow-hidden p-3 active:translate-y-0 hover:-translate-y-0.5 hover:shadow-md",
             TABLE_STATUS_UI[table.status].tile,
           )}
         >
-          <TableTileBody table={table} compact />
+          <TableTileBody table={table} compact={layout === "floor"} />
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">

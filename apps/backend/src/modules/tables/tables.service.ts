@@ -14,8 +14,12 @@ import type {
   TableStatusDto,
   TableUpdateDto,
 } from '@nodedr-restaurant/types';
+import type { TableStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RealtimeGateway } from '../../realtime/realtime.gateway';
+
+// A table in one of these states holds a running bill or a booking.
+const BUSY_TABLE_STATUSES: TableStatus[] = ['OCCUPIED', 'RESERVED'];
 
 @Injectable()
 export class TablesService {
@@ -159,8 +163,37 @@ export class TablesService {
 
   async deleteTable(branchId: string, id: string) {
     await this.assertTableInBranch(branchId, id);
+    const table = await this.prisma.table.findUniqueOrThrow({ where: { id }, select: { status: true } });
+    if (BUSY_TABLE_STATUSES.includes(table.status)) {
+      // Deleting would silently detach a running bill or a booking from its table.
+      throw new ConflictException(
+        table.status === 'OCCUPIED'
+          ? 'This table has a running bill. Settle it before deleting the table.'
+          : 'This table is reserved. Cancel the reservation before deleting the table.',
+      );
+    }
     await this.prisma.table.delete({ where: { id } });
     this.realtime.emitToBranch(branchId, 'table.deleted', { id });
+    return { ok: true };
+  }
+
+  /**
+   * Deletes a floor together with its tables (the schema cascades; past orders
+   * keep their record, just without a table). Refused while any of its tables
+   * has a running bill or a reservation.
+   */
+  async deleteFloor(branchId: string, id: string) {
+    await this.assertFloorInBranch(branchId, id);
+    const busy = await this.prisma.table.count({
+      where: { floorId: id, status: { in: BUSY_TABLE_STATUSES } },
+    });
+    if (busy > 0) {
+      throw new ConflictException(
+        `${busy} table${busy === 1 ? ' on this floor is' : 's on this floor are'} occupied or reserved. Settle or free ${busy === 1 ? 'it' : 'them'} before deleting the floor.`,
+      );
+    }
+    await this.prisma.floor.delete({ where: { id } });
+    this.realtime.emitToBranch(branchId, 'floor.deleted', { id });
     return { ok: true };
   }
 

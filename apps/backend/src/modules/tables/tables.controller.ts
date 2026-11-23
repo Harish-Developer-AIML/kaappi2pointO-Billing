@@ -169,6 +169,17 @@ export class TablesController {
   }
 
   @Auth('tables.manage')
+  @Delete('floors/:id')
+  async deleteFloor(
+    @CurrentUser() user: SessionUser,
+    @Query('branchId') branchId: string,
+    @Param('id') id: string,
+  ) {
+    await this.branchAccess.assertAccess(user.restaurantId, branchId);
+    return this.tablesService.deleteFloor(branchId, id);
+  }
+
+  @Auth('tables.manage')
   @Delete(':id')
   async deleteTable(
     @CurrentUser() user: SessionUser,
