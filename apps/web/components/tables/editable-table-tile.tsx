@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Trash2, Users } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import {
 } from "@/hooks/use-tables";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { TableShapeIcon } from "./table-shape-icon";
+import { TABLE_TILE_BASE, TableTileBody } from "./table-status-ui";
 
 export function EditableTableTile({
   table,
@@ -83,16 +83,12 @@ export function EditableTableTile({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       className={cn(
-        "absolute flex cursor-grab touch-none flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-primary/40 bg-primary/5 text-xs font-medium text-foreground shadow-sm active:cursor-grabbing",
+        TABLE_TILE_BASE,
+        "absolute cursor-grab touch-none gap-0.5 border-2 border-dashed border-primary/40 pt-1 active:cursor-grabbing",
       )}
       style={{ left: posX, top: posY, width: table.width, height: table.height }}
     >
-      <TableShapeIcon shape={table.shape} capacity={table.capacity} className="h-6 w-6" />
-      <span className="text-sm font-semibold">{table.name ?? `T${table.number}`}</span>
-      <span className="flex items-center gap-1 text-[11px] opacity-80">
-        <Users className="h-3 w-3" />
-        {table.capacity}
-      </span>
+      <TableTileBody table={table} compact />
       <div className="absolute -top-3 right-1 flex gap-1">
         <Button
           variant="secondary"

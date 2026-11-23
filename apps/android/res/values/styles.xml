@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brown status bar to match the web app's coffee-brown accent (#6F4E37). -->
+    <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">#6F4E37</item>
+        <item name="android:colorPrimaryDark">#563A28</item>
+        <item name="android:colorAccent">#6F4E37</item>
+        <item name="android:statusBarColor">#563A28</item>
+        <item name="android:navigationBarColor">#FBF9F8</item>
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+</resources>

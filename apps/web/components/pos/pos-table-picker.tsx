@@ -1,23 +1,13 @@
 "use client";
 
 import type { TableStatusDto } from "@nodedr-restaurant/types";
-import { Users } from "lucide-react";
 import { useState } from "react";
-import { ElapsedTimer } from "@/components/tables/elapsed-timer";
-import { TableShapeIcon } from "@/components/tables/table-shape-icon";
+import { TABLE_STATUS_UI, TABLE_TILE_BASE, TableTileBody } from "@/components/tables/table-status-ui";
 import { ResponsiveTabs } from "@/components/ui/nav-picker";
 import { QueryError } from "@/components/ui/query-error";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Floor, RestaurantTable } from "@/hooks/use-tables";
 import { cn } from "@/lib/utils";
-
-const STATUS_STYLES: Record<TableStatusDto, string> = {
-  AVAILABLE: "bg-success/10 border-success/30 text-success hover:bg-success/15",
-  OCCUPIED: "bg-primary/10 border-primary/30 text-primary hover:bg-primary/15",
-  RESERVED: "bg-warning/10 border-warning/30 text-warning hover:bg-warning/15",
-  CLEANING: "bg-muted border-border text-muted-foreground",
-  OUT_OF_SERVICE: "bg-muted border-border text-muted-foreground opacity-50",
-};
 
 const STATUS_LABEL: Record<TableStatusDto, string> = {
   AVAILABLE: "Available",
@@ -86,7 +76,9 @@ export function PosTablePicker({
         />
       )}
 
-      <div className="grid flex-1 auto-rows-min grid-cols-3 items-start gap-3 overflow-y-auto pb-2 sm:grid-cols-4 lg:grid-cols-5 lg:gap-4 xl:grid-cols-6 2xl:grid-cols-7">
+      {/* p-2 (cancelled by -m-2) leaves room inside the scroll box for a tile's
+          hover:scale and shadow, which the box would otherwise clip. */}
+      <div className="-m-2 grid flex-1 auto-rows-min grid-cols-3 gap-3 overflow-y-auto overscroll-contain p-2 pb-3 sm:grid-cols-4 lg:grid-cols-5 lg:gap-4 xl:grid-cols-6 2xl:grid-cols-7">
         {activeFloor?.tables.map((table) => {
           const clickable = table.status !== "CLEANING" && table.status !== "OUT_OF_SERVICE";
           return (
@@ -97,24 +89,14 @@ export function PosTablePicker({
               title={STATUS_LABEL[table.status]}
               onClick={() => onSelect(table)}
               className={cn(
-                "flex h-28 flex-col items-center justify-center gap-1 rounded-2xl border-2 p-3 text-xs font-medium shadow-sm transition-transform lg:h-36 lg:gap-1.5",
-                clickable && "cursor-pointer hover:scale-[1.03] hover:shadow-md",
+                TABLE_TILE_BASE,
+                "min-h-28 overflow-hidden p-3 lg:min-h-36 lg:gap-1.5",
+                clickable && "cursor-pointer hover:-translate-y-0.5 hover:shadow-md active:translate-y-0",
                 !clickable && "cursor-not-allowed",
-                STATUS_STYLES[table.status],
+                TABLE_STATUS_UI[table.status].tile,
               )}
             >
-              <TableShapeIcon shape={table.shape} capacity={table.capacity} className="h-6 w-6 lg:h-8 lg:w-8" />
-              <span className="text-sm font-semibold lg:text-lg">{table.name ?? `T${table.number}`}</span>
-              <span className="flex items-center gap-1 text-[11px] opacity-80">
-                <Users className="h-3 w-3" />
-                {table.capacity}
-              </span>
-              <span className="hidden rounded-full bg-background/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide lg:inline">
-                {table.status === "OUT_OF_SERVICE" ? "Out of service" : table.status.toLowerCase()}
-              </span>
-              {(table.status === "OCCUPIED" || table.status === "RESERVED") && (
-                <ElapsedTimer since={table.statusSince} className="flex items-center gap-1 text-[10px] opacity-70" />
-              )}
+              <TableTileBody table={table} />
             </button>
           );
         })}
@@ -126,9 +108,9 @@ export function PosTablePicker({
       </div>
 
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground lg:border-t lg:border-border lg:pt-3">
-        <Legend color="bg-success" label="Available" />
+        <Legend color="bg-emerald-500" label="Available" />
         <Legend color="bg-primary" label="Occupied" />
-        <Legend color="bg-warning" label="Reserved" />
+        <Legend color="bg-amber-500" label="Reserved" />
         <Legend color="bg-muted-foreground" label="Cleaning / out of service" />
       </div>
     </div>

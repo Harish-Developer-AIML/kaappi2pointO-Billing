@@ -5,6 +5,11 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Pure TypeScript/WASM query engine + the `pg` driver adapter (see
+  // src/prisma/prisma.service.ts) instead of Prisma's native Rust engine,
+  // which has no build for Android: the same code then runs on a server, in
+  // Docker, on Windows and inside the Android app's embedded server.
+  engineType = "client"
 }
 
 datasource db {

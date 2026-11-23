@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Locally built Android APKs shared to test phones (apps/android/build.sh); never committed.
+public/downloads/

@@ -30,6 +30,7 @@ allowBuilds:
   '@prisma/engines': true
   '@scarf/scarf': true
   bcrypt: true
+  esbuild: false # the Android bundler (apps/android/scripts/bundle-backend.mjs) works without its optional postinstall
   prisma: true
   sharp: true
   unrs-resolver: true

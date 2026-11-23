@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import { PrismaPg } from '@prisma/adapter-pg';
+import * as bcrypt from 'bcryptjs';
 import {
   DEFAULT_ROLE_PERMISSIONS,
   PERMISSIONS,
@@ -26,7 +27,11 @@ function priceLine(
   return { lineTotal, taxAmount };
 }
 
-const prisma = new PrismaClient();
+// engineType = "client" (schema.prisma) needs a driver adapter; built inline
+// rather than imported from src/ because src/ isn't shipped in the runtime image.
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+});
 
 async function main() {
   console.log('Seeding permissions...');

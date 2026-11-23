@@ -97,12 +97,23 @@ async function bootstrap() {
   process.env.JWT_SECRET = resolveJwtSecret();
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // WEB_ROOT: serve the web UI's static export (BUILD_TARGET=android build of
+  // apps/web) from this same server — used by the Android app's embedded
+  // server, where there is no separate Next.js server. Unset everywhere else.
+  const webRoot = process.env.WEB_ROOT?.trim() || null;
+
   app.use(
     helmet({
       // Uploaded images are fetched cross-origin-ish (via the frontend's
       // same-origin /api proxy, but still through an <img> tag) — the
       // default helmet CORP header blocks that in some browsers.
       crossOriginResourcePolicy: { policy: 'cross-origin' },
+      // When this server also serves the UI: helmet's default CSP would block
+      // the exported pages' inline hydration scripts and its
+      // upgrade-insecure-requests would break plain http:// on a shop's LAN.
+      // Matches the standard deployment, where the Next.js server (not
+      // helmet) serves pages.
+      ...(webRoot ? { contentSecurityPolicy: false } : {}),
     }),
   );
   app.use(cookieParser());
@@ -112,6 +123,10 @@ async function bootstrap() {
   });
   app.setGlobalPrefix('api');
   app.useStaticAssets(uploadsDir(), { prefix: '/api/uploads/' });
+  if (webRoot) {
+    // Exported with trailingSlash, so /pos is served from /pos/index.html.
+    app.useStaticAssets(webRoot, { index: 'index.html', redirect: true });
+  }
 
   // Full route/schema map — genuinely useful in dev, but an unauthenticated
   // information-disclosure surface (every endpoint shape, DTO field, and

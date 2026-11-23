@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The emblem's own dark espresso disc colour. -->
+    <color name="ic_launcher_background">#1E1513</color>
+</resources>

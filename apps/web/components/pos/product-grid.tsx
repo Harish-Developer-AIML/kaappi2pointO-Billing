@@ -48,7 +48,7 @@ export function ProductGrid({
       {categories && categories.length > 0 && (
         <nav
           aria-label="Category"
-          className="hidden w-52 shrink-0 flex-col gap-1 overflow-y-auto border-r border-border pr-3 lg:flex xl:w-60"
+          className="hidden w-44 shrink-0 flex-col gap-1 overflow-y-auto overscroll-contain border-r border-border pr-3 lg:flex xl:w-52"
         >
           {[{ id: undefined as string | undefined, name: "All", count: undefined as number | undefined }, ...categories.map((c) => ({ id: c.id as string | undefined, name: c.name, count: c._count.items as number | undefined }))].map((c) => {
             const active = c.id === activeCategoryId;
@@ -80,11 +80,13 @@ export function ProductGrid({
       {isError && !items ? (
         <QueryError error={error} what="the menu" onRetry={() => void refetch()} retrying={isFetching} />
       ) : (
-      <div className="grid flex-1 auto-rows-min grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-3 overflow-y-auto pb-4 lg:gap-4">
+      <div className="-m-1.5 grid flex-1 auto-rows-min grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-3 overflow-y-auto overscroll-contain p-1.5 pb-4 lg:gap-4">
         {/* Columns follow the space this grid actually has, not the viewport:
             on the POS page it shares the row with the category rail and the
             cart, so viewport breakpoints (xl:grid-cols-4) squeezed cards
-            narrower than a name or a price. Each card is at least 8.5rem. */}
+            narrower than a name or a price. Each card is at least 8rem.
+            p-1.5 (cancelled by -m-1.5) keeps a card's hover lift and shadow
+            inside the scroll box instead of being clipped at its edge. */}
         {isLoading &&
           Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-2xl" />)}
         {filtered?.map((item) => (

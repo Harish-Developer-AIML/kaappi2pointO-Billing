@@ -2,8 +2,8 @@
 
 import { ArrowLeft, CreditCard, Gift, Pencil, Star, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { use, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { toast } from "sonner";
 import { EditCustomerDialog } from "@/components/customers/edit-customer-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -15,8 +15,24 @@ import { useCustomer, useDeleteCustomer } from "@/hooks/use-customers";
 import { ApiError } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 
-export default function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+// /customers/view?id=<customerId>. A query parameter rather than a
+// /customers/[id] segment so the page can be pre-built as a static file (the
+// Android app bundles the UI as a static export, which can't render unknown ids).
+export default function CustomerDetailPage() {
+  return (
+    <Suspense fallback={<Skeleton className="h-96 rounded-2xl" />}>
+      <CustomerDetailFromQuery />
+    </Suspense>
+  );
+}
+
+function CustomerDetailFromQuery() {
+  const id = useSearchParams().get("id");
+  if (!id) return <p className="text-sm text-muted-foreground">No customer selected.</p>;
+  return <CustomerDetail id={id} />;
+}
+
+function CustomerDetail({ id }: { id: string }) {
   const { branchId } = useBranch();
   const { data: customer, isLoading } = useCustomer(branchId, id);
   const router = useRouter();

@@ -189,9 +189,9 @@ export default function TablesPage() {
             </Card>
 
             <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-              <Legend color="bg-success" label="Available" />
+              <Legend color="bg-emerald-500" label="Available" />
               <Legend color="bg-primary" label="Occupied" />
-              <Legend color="bg-warning" label="Reserved" />
+              <Legend color="bg-amber-500" label="Reserved" />
               <Legend color="bg-muted-foreground" label="Cleaning / out of service" />
             </div>
           </div>

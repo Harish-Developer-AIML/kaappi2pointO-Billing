@@ -60,7 +60,7 @@ export default function CustomersPage() {
           customers.map((c) => (
             <Link
               key={c.id}
-              href={`/customers/${c.id}`}
+              href={`/customers/view?id=${encodeURIComponent(c.id)}`}
               className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-secondary"
             >
               <div className="flex flex-col">

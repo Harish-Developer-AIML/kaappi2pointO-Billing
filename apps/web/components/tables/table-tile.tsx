@@ -1,7 +1,7 @@
 "use client";
 
 import type { TableStatusDto } from "@nodedr-restaurant/types";
-import { ClipboardList, Merge, Plus, QrCode, Users } from "lucide-react";
+import { ClipboardList, Merge, Plus, QrCode } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
@@ -14,18 +14,9 @@ import {
 import { useUpdateTableStatus, type RestaurantTable } from "@/hooks/use-tables";
 import { cn } from "@/lib/utils";
 import { BillTableDialog } from "./bill-table-dialog";
-import { ElapsedTimer } from "./elapsed-timer";
 import { MergeTableDialog } from "./merge-table-dialog";
 import { TableQrDialog } from "./table-qr-dialog";
-import { TableShapeIcon } from "./table-shape-icon";
-
-const STATUS_STYLES: Record<TableStatusDto, string> = {
-  AVAILABLE: "bg-success/10 border-success/30 text-success",
-  OCCUPIED: "bg-primary/10 border-primary/30 text-primary",
-  RESERVED: "bg-warning/10 border-warning/30 text-warning",
-  CLEANING: "bg-muted border-border text-muted-foreground",
-  OUT_OF_SERVICE: "bg-muted border-border text-muted-foreground opacity-60",
-};
+import { TABLE_STATUS_UI, TABLE_TILE_BASE, TableTileBody } from "./table-status-ui";
 
 const STATUS_LABEL: Record<TableStatusDto, string> = {
   AVAILABLE: "Available",
@@ -57,20 +48,14 @@ export function TableTile({
       <DropdownMenu>
         <DropdownMenuTrigger
           style={style}
+          aria-label={`${table.name ?? `T${table.number}`}: ${STATUS_LABEL[table.status]}, ${table.capacity} seats`}
           className={cn(
-            "absolute flex flex-col items-center justify-center gap-1 rounded-2xl border-2 text-xs font-medium shadow-sm transition-transform hover:scale-[1.03]",
-            STATUS_STYLES[table.status],
+            TABLE_TILE_BASE,
+            "absolute gap-0.5 overflow-hidden pt-1 hover:-translate-y-0.5 hover:shadow-md",
+            TABLE_STATUS_UI[table.status].tile,
           )}
         >
-          <TableShapeIcon shape={table.shape} capacity={table.capacity} className="h-6 w-6" />
-          <span className="text-sm font-semibold">{table.name ?? `T${table.number}`}</span>
-          <span className="flex items-center gap-1 text-[11px] opacity-80">
-            <Users className="h-3 w-3" />
-            {table.capacity}
-          </span>
-          {(table.status === "OCCUPIED" || table.status === "RESERVED") && (
-            <ElapsedTimer since={table.statusSince} className="flex items-center gap-1 text-[10px] opacity-70" />
-          )}
+          <TableTileBody table={table} compact />
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
@@ -82,6 +67,7 @@ export function TableTile({
               disabled={status === table.status}
               onClick={() => updateStatus.mutate({ id: table.id, status })}
             >
+              <span aria-hidden className={cn("size-2 rounded-full", TABLE_STATUS_UI[status].dot)} />
               {STATUS_LABEL[status]}
             </DropdownMenuItem>
           ))}
