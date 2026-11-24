@@ -1,6 +1,6 @@
 "use client";
 
-import type { MenuCategoryDto, MenuItemDto } from "@nodedr-restaurant/types";
+import type { MenuCategoryDto, MenuImport, MenuImportResult, MenuItemDto } from "@nodedr-restaurant/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
@@ -103,6 +103,18 @@ export function useDeleteCategory(branchId: string | null) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["menu", "categories", branchId] });
       queryClient.invalidateQueries({ queryKey: ["menu", "items", branchId] });
+    },
+  });
+}
+
+/** Menu › Upload JSON. dryRun = preview only (nothing changes). */
+export function useImportMenu(branchId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ file, dryRun }: { file: MenuImport; dryRun: boolean }) =>
+      api.post<MenuImportResult>(`/menu/import?branchId=${branchId}${dryRun ? "&dryRun=true" : ""}`, file),
+    onSuccess: (result) => {
+      if (!result.dryRun) queryClient.invalidateQueries({ queryKey: ["menu"] });
     },
   });
 }

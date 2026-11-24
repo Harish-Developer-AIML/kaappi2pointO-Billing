@@ -20,6 +20,7 @@ import {
   resolveTaxIdLabel,
   resolveTaxLabel,
   TAX_REGIME_PRESETS,
+  type BillLogo,
   type BillSettings,
   type TaxMode,
   type TaxRegime,
@@ -220,6 +221,15 @@ export function buildReceiptHtml({
   const headerBlock = headerParts.length
     ? `<p class="center muted">${headerParts.join('<br>')}</p>`
     : '';
+  const headerText = `${bill.showRestaurantName ? `<h1>${esc(restaurantName)}</h1>` : ''}${headerBlock}`;
+  // Logos left and right of the shop details. The image is a validated PNG
+  // data URL (billLogoSchema: base64 characters only), safe in the attribute.
+  const logo = (l: BillLogo | null) =>
+    l ? `<img class="logo" src="${l.image}" alt="">` : '';
+  const header =
+    bill.logoLeft || bill.logoRight
+      ? `<div class="head"><div class="side">${logo(bill.logoLeft)}</div><div class="head-text">${headerText}</div><div class="side">${logo(bill.logoRight)}</div></div>`
+      : headerText;
 
   return `<!doctype html>
 <html>
@@ -247,6 +257,10 @@ export function buildReceiptHtml({
   .vf svg { display: block; margin: 4px auto; }
   .footer { text-align: center; margin-top: 6px; font-size: 11px; }
   .title { text-align: center; font-weight: 700; font-size: 13px; letter-spacing: 0.04em; margin: 2px 0 4px; }
+  .head { display: flex; align-items: center; gap: 4px; }
+  .head .side { flex: none; width: 16mm; display: flex; justify-content: center; }
+  .head .logo { max-width: 16mm; max-height: 16mm; object-fit: contain; }
+  .head .head-text { flex: 1; min-width: 0; }
   .meta td { font-size: 11px; color: #555; line-height: 1.35; }
   .meta .tbl { text-align: right; vertical-align: top; white-space: nowrap; padding-left: 8px; }
   .meta .tbl span { display: block; font-size: 10px; text-transform: uppercase; color: #777; }
@@ -263,8 +277,7 @@ export function buildReceiptHtml({
     window.addEventListener('message', function (e) { if (e.data === 'print') window.print(); });
   </script>
   <div class="receipt">
-    ${bill.showRestaurantName ? `<h1>${esc(restaurantName)}</h1>` : ''}
-    ${headerBlock}
+    ${header}
     <hr class="rule">
     ${bill.billTitle ? `<p class="title">${esc(bill.billTitle)}</p>` : ''}
     <table class="meta"><tr>

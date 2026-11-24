@@ -444,3 +444,56 @@ describe('bill settings (Settings › Bill)', () => {
     expect(text).toContain('Come again!');
   });
 });
+
+describe('bill logos', () => {
+  const logo = (width: number, height: number) => ({
+    image: 'data:image/png;base64,AAAA',
+    raster: {
+      width,
+      height,
+      data: Buffer.alloc((width / 8) * height, 0xff).toString('base64'),
+    },
+  });
+  const printWith = (bill: Partial<BillSettings>) =>
+    buildReceiptEscPosJob({
+      restaurantName: 'Kaappi',
+      currency: 'INR',
+      branch,
+      order,
+      bill: { ...DEFAULT_BILL_SETTINGS, ...bill },
+      profile: resolveProfile({ paperWidthMm: 58 }),
+      ...fmt,
+    }).buffer;
+  const RASTER = Buffer.from([0x1d, 0x76, 0x30, 0x00]);
+
+  it('prints the left and right logos as one band at the paper edges', () => {
+    const job = printWith({ logoLeft: logo(16, 4), logoRight: logo(8, 2) });
+    const at = job.indexOf(RASTER);
+    expect(at).toBeGreaterThanOrEqual(0);
+    // 58 mm = 384 dots = 48 bytes a row; as tall as the taller logo
+    expect([...job.subarray(at + 4, at + 8)]).toEqual([48, 0, 4, 0]);
+    const band = job.subarray(at + 8, at + 8 + 48 * 4);
+    const row = (y: number) => [...band.subarray(y * 48, y * 48 + 48)];
+    // left logo: first 2 bytes of every row
+    expect(row(0).slice(0, 3)).toEqual([0xff, 0xff, 0]);
+    // right logo (2 rows) is vertically centred: rows 1 and 2, last byte
+    expect(row(0)[47]).toBe(0);
+    expect(row(1)[47]).toBe(0xff);
+    expect(row(2)[47]).toBe(0xff);
+    expect(row(3)[47]).toBe(0);
+    // the shop name follows as normal text
+    expect(job.subarray(at).includes(Buffer.from('Kaappi'))).toBe(true);
+  });
+
+  it('one logo only prints just that one', () => {
+    const job = printWith({ logoRight: logo(8, 3) });
+    const at = job.indexOf(RASTER);
+    const band = job.subarray(at + 8, at + 8 + 48 * 3);
+    expect(band[0]).toBe(0);
+    expect(band[47]).toBe(0xff);
+  });
+
+  it('no logos: no picture in the job', () => {
+    expect(printWith({}).includes(RASTER)).toBe(false);
+  });
+});

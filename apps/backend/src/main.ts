@@ -96,6 +96,9 @@ function resolveJwtSecret(): string {
 async function bootstrap() {
   process.env.JWT_SECRET = resolveJwtSecret();
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Bill settings carry two small logo images (up to ~250 KB each) and a menu
+  // upload can be a few hundred dishes: more than the 100 KB default.
+  app.useBodyParser('json', { limit: '2mb' });
 
   // WEB_ROOT: serve the web UI's static export (BUILD_TARGET=android build of
   // apps/web) from this same server — used by the Android app's embedded
@@ -139,7 +142,9 @@ async function bootstrap() {
   ) {
     const config = new DocumentBuilder()
       .setTitle('Kaappi Biller API')
-      .setDescription('REST API for the Kaappi Biller restaurant billing system')
+      .setDescription(
+        'REST API for the Kaappi Biller restaurant billing system',
+      )
       .setVersion('1.0')
       .addCookieAuth('nodedr_session')
       .build();
@@ -149,8 +154,6 @@ async function bootstrap() {
 
   const port = process.env.PORT ?? 4000;
   await app.listen(port);
-  console.log(
-    `Kaappi Biller API listening on :${port} (docs at /api/docs)`,
-  );
+  console.log(`Kaappi Biller API listening on :${port} (docs at /api/docs)`);
 }
 void bootstrap();

@@ -14,6 +14,7 @@ import {
   resolveTaxIdLabel,
   resolveTaxLabel,
   TAX_REGIME_PRESETS,
+  type BillLogo,
   type BillSettings,
   type TaxMode,
   type TaxRegime,
@@ -23,9 +24,18 @@ import {
   EscposWriter,
   resolveProfile,
   type PrinterProfile,
+  type RasterImage,
 } from './escpos/encoder';
 
 export { resolveProfile, type PrinterProfile } from './escpos/encoder';
+
+/** A bill logo's printer picture (validated when saved; see billLogoSchema). */
+function rasterOf(logo: BillLogo | null): RasterImage | null {
+  if (!logo) return null;
+  const data = Buffer.from(logo.raster.data, 'base64');
+  const { width, height } = logo.raster;
+  return data.length === (width / 8) * height ? { width, height, data } : null;
+}
 
 // Preferred symbol first; used only when the selected code page can print it,
 // otherwise the ISO-style code after it (never a '?').
@@ -149,6 +159,9 @@ export function buildReceiptEscPosJob({
     (branch.taxRegime === 'INDIA_GST' ? branch.gstNumber : null);
   const taxIdLabel = resolveTaxIdLabel(branch.taxRegime);
 
+  if (bill.logoLeft || bill.logoRight) {
+    w.logos(rasterOf(bill.logoLeft), rasterOf(bill.logoRight));
+  }
   if (bill.showRestaurantName) {
     w.text(restaurantName, { align: 'center', bold: true, size: 'big' });
   }

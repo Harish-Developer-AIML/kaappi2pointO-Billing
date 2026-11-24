@@ -1,7 +1,14 @@
 "use client";
 
-import { DEFAULT_BILL_SETTINGS, resolveBillSettings, type BillSettings, type TaxRegime } from "@nodedr-restaurant/types";
-import { useEffect, useState } from "react";
+import {
+  DEFAULT_BILL_SETTINGS,
+  resolveBillSettings,
+  type BillLogo,
+  type BillSettings,
+  type TaxRegime,
+} from "@nodedr-restaurant/types";
+import { ImageIcon, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { BranchNotice } from "@/components/layout/branch-notice";
 import { SettingsTabs } from "@/components/settings/settings-tabs";
@@ -15,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useBranch } from "@/hooks/use-branch";
 import { useBillPreview, useSettings, useUpdateBranchSettings, type BranchSettings } from "@/hooks/use-settings";
 import { ApiError } from "@/lib/api";
+import { makeBillLogo, rasterPreview } from "@/lib/bill-logo";
 import { cn } from "@/lib/utils";
 
 // Settings › Bill: every part of the printed bill, with a live sample bill.
@@ -102,6 +110,13 @@ function BillSettingsForm({ branchId, branch }: { branchId: string; branch: Bran
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:items-start">
       <div className="flex flex-col gap-6">
+        <Section title="Logos" hint="Optional: one on the left, one on the right, or both. Printed at the top of the bill.">
+          <div className="grid grid-cols-2 gap-3">
+            <LogoPicker label="Left logo" logo={bill.logoLeft} onChange={(l) => set("logoLeft", l)} />
+            <LogoPicker label="Right logo" logo={bill.logoRight} onChange={(l) => set("logoRight", l)} />
+          </div>
+        </Section>
+
         <Section title="Shop details on the bill" hint="Printed at the top of every bill.">
           <Toggle label="Restaurant name" checked={bill.showRestaurantName} onChange={(v) => set("showRestaurantName", v)} />
           <Toggle label="Branch name" checked={bill.showBranchName} onChange={(v) => set("showBranchName", v)} />
@@ -199,6 +214,84 @@ function BillSettingsForm({ branchId, branch }: { branchId: string; branch: Bran
           )}
         </div>
       </Card>
+    </div>
+  );
+}
+
+function LogoPicker({
+  label,
+  logo,
+  onChange,
+}: {
+  label: string;
+  logo: BillLogo | null;
+  onChange: (logo: BillLogo | null) => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  // How it comes out on a thermal printer (black and white dots).
+  const printed = useMemo(
+    () => (logo && typeof document !== "undefined" ? rasterPreview(logo.raster) : null),
+    [logo],
+  );
+
+  const choose = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      onChange(await makeBillLogo(file));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not use this image");
+    } finally {
+      setBusy(false);
+      if (input.current) input.current.value = "";
+    }
+  };
+
+  return (
+    <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-border p-3">
+      <span className="text-sm font-semibold text-foreground">{label}</span>
+      <div className="flex h-20 items-center justify-center rounded-lg bg-secondary/40">
+        {logo ? (
+          // eslint-disable-next-line @next/next/no-img-element -- a data URL, nothing to optimise
+          <img src={logo.image} alt={label} className="max-h-16 max-w-full object-contain" />
+        ) : (
+          <span className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
+            <ImageIcon className="h-5 w-5" />
+            No logo
+          </span>
+        )}
+      </div>
+      {printed && (
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          {/* eslint-disable-next-line @next/next/no-img-element -- generated preview */}
+          <img src={printed} alt="" className="h-8 max-w-[50%] border border-border object-contain [image-rendering:pixelated]" />
+          On thermal paper
+        </div>
+      )}
+      <input
+        ref={input}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={(e) => choose(e.target.files?.[0])}
+      />
+      <div className="flex items-center gap-1">
+        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => input.current?.click()}>
+          {busy ? "Preparing…" : logo ? "Change" : "Choose image"}
+        </Button>
+        {logo && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            aria-label={`Remove ${label.toLowerCase()}`}
+            onClick={() => onChange(null)}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

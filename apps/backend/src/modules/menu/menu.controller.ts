@@ -8,16 +8,21 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UploadedFile,
   UseInterceptors,
   UsePipes,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import {
   menuCategorySchema,
+  MENU_IMPORT_SAMPLE,
+  menuImportSchema,
   menuItemSchema,
   modifierGroupSchema,
+  type MenuImport,
   setComboComponentsSchema,
   type SessionUser,
 } from '@nodedr-restaurant/types';
@@ -29,6 +34,7 @@ import {
   assertValidImageSignature,
   imageUploadOptions,
 } from '../../common/upload/image-upload.config';
+import { MenuImportService } from './menu-import.service';
 import { MenuService } from './menu.service';
 
 @ApiTags('menu')
@@ -36,8 +42,46 @@ import { MenuService } from './menu.service';
 export class MenuController {
   constructor(
     private readonly menuService: MenuService,
+    private readonly menuImport: MenuImportService,
     private readonly branchAccess: BranchAccessService,
   ) {}
+
+  // --- Upload JSON ----------------------------------------------------------
+
+  /** The example file, as a download (a plain link, so the Android app's downloader can fetch it). */
+  @Auth('menu.view')
+  @Get('import/sample')
+  importSample(@Res() res: Response) {
+    res
+      .type('application/json')
+      .setHeader(
+        'Content-Disposition',
+        'attachment; filename="menu-sample.json"',
+      )
+      .send(JSON.stringify(MENU_IMPORT_SAMPLE, null, 2));
+  }
+
+  /**
+   * Menu › Upload JSON. `dryRun=true` returns what the file would do (the
+   * preview) without changing anything; without it the changes are made.
+   */
+  @Auth('menu.manage')
+  @Post('import')
+  @UsePipes(new ZodValidationPipe(menuImportSchema))
+  async importMenu(
+    @CurrentUser() user: SessionUser,
+    @Query('branchId') branchId: string,
+    @Query('dryRun') dryRun: string | undefined,
+    @Body() body: unknown,
+  ) {
+    await this.branchAccess.assertAccess(user.restaurantId, branchId);
+    return this.menuImport.importMenu(
+      branchId,
+      user.id,
+      body as MenuImport,
+      dryRun === 'true',
+    );
+  }
 
   // --- Categories ---------------------------------------------------------
 

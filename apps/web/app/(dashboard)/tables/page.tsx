@@ -1,7 +1,7 @@
 "use client";
 
 import { LayoutGrid, Plus } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AddFloorDialog } from "@/components/tables/add-floor-dialog";
 import { DeleteFloorButton } from "@/components/tables/delete-floor-button";
 import { EditableTableTile } from "@/components/tables/editable-table-tile";
@@ -20,6 +20,46 @@ import { hasPermission, useCurrentUser } from "@/hooks/use-auth";
 import { useBranch } from "@/hooks/use-branch";
 import { useFloors, type RestaurantTable } from "@/hooks/use-tables";
 import { cn } from "@/lib/utils";
+
+// Phones/tablets: how tables are shown (see the switch above the tables).
+type TablesView = "auto" | "grid" | "floor";
+const TABLES_VIEWS: { id: TablesView; label: string }[] = [
+  { id: "auto", label: "Auto" },
+  { id: "grid", label: "Grid" },
+  { id: "floor", label: "Floor plan" },
+];
+const TABLES_VIEW_KEY = "kaappi.tables.view";
+const TABLES_VIEW_EVENT = "kaappi:tables-view";
+let memoryView: TablesView = "auto"; // when browser storage is off
+
+function readTablesView(): TablesView {
+  try {
+    const v = localStorage.getItem(TABLES_VIEW_KEY);
+    if (v === "auto" || v === "grid" || v === "floor") return v;
+  } catch {
+    // storage off: fall back to this tab's choice
+  }
+  return memoryView;
+}
+
+function writeTablesView(v: TablesView) {
+  memoryView = v;
+  try {
+    localStorage.setItem(TABLES_VIEW_KEY, v);
+  } catch {
+    // not remembered after a reload, still applies now
+  }
+  window.dispatchEvent(new Event(TABLES_VIEW_EVENT));
+}
+
+function subscribeTablesView(onChange: () => void) {
+  window.addEventListener(TABLES_VIEW_EVENT, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(TABLES_VIEW_EVENT, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
 
 export default function TablesPage() {
   const { branchId } = useBranch();
@@ -44,18 +84,32 @@ export default function TablesPage() {
   // sideways (view mode only — dragging needs real pixel coordinates).
   const cardRef = useRef<HTMLDivElement>(null);
   const [availableWidth, setAvailableWidth] = useState(0);
+  // A phone turned sideways (short screen): the whole floor plan is also
+  // shrunk to the screen height, so every table is in view at once.
+  const [fitHeight, setFitHeight] = useState(0);
   useEffect(() => {
     const el = cardRef.current;
     if (!el) return;
     const measure = () => {
       const cs = getComputedStyle(el);
       setAvailableWidth(el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight));
+      // Header and bottom bar take about 150 px of a 360-430 px tall screen.
+      setFitHeight(window.innerHeight < 600 ? Math.max(160, window.innerHeight - 150) : 0);
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
-    return () => ro.disconnect();
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
   }, [isLoading, floors?.length]);
+
+  // Phones and tablets: "auto" = tiles upright, floor plan when turned
+  // sideways; or always one of them. Remembered on this device.
+  const view = useSyncExternalStore(subscribeTablesView, readTablesView, () => "auto" as const);
+  const setView = writeTablesView;
 
   const activeFloor = floors?.find((f) => f.id === (activeFloorId ?? floors[0]?.id));
   const allTables = floors?.flatMap((f) => f.tables) ?? [];
@@ -71,8 +125,16 @@ export default function TablesPage() {
   const contentWidth = activeFloor
     ? Math.max(1, ...activeFloor.tables.map((t) => t.posX + t.width + 16))
     : canvasWidth;
-  const fitScale =
-    !editMode && availableWidth > 0 && availableWidth < contentWidth ? availableWidth / contentWidth : 1;
+  const contentHeight = activeFloor
+    ? Math.max(1, ...activeFloor.tables.map((t) => t.posY + t.height + 16))
+    : canvasHeight;
+  const fitScale = editMode
+    ? 1
+    : Math.min(
+        1,
+        availableWidth > 0 ? availableWidth / contentWidth : 1,
+        fitHeight > 0 ? fitHeight / contentHeight : 1,
+      );
 
   const openAddTable = () => {
     setEditorTable(null);
@@ -119,6 +181,29 @@ export default function TablesPage() {
       ) : floors && floors.length > 0 ? (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
           <div className="flex flex-col gap-4">
+            {!editMode && (
+              <div
+                role="radiogroup"
+                aria-label="Table view"
+                className="flex w-full rounded-xl border border-border bg-secondary/40 p-1 lg:hidden"
+              >
+                {TABLES_VIEWS.map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={view === v.id}
+                    onClick={() => setView(v.id)}
+                    className={cn(
+                      "min-h-10 flex-1 rounded-lg px-2 text-sm font-medium transition-colors",
+                      view === v.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground",
+                    )}
+                  >
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="flex min-w-0 flex-wrap items-center gap-2 [&_button]:max-sm:min-h-10">
               {(floors.length > 1 || editMode) && (
                 <ResponsiveTabs
@@ -175,18 +260,29 @@ export default function TablesPage() {
                   shrunk to fit a phone, made tables tiny and left a large empty
                   area. Editing still uses the floor plan (positions). */}
               {!editMode && (
-                <div className="grid grid-cols-2 gap-3 min-[420px]:grid-cols-3 md:hidden">
+                <div
+                  className={cn(
+                    "grid-cols-2 gap-3 min-[420px]:grid-cols-3 lg:hidden",
+                    view === "grid" ? "grid" : view === "floor" ? "hidden" : "hidden max-md:portrait:grid",
+                  )}
+                >
                   {activeFloor?.tables.map((table) => (
                     <TableTile key={table.id} table={table} allTables={allTables} branchId={branchId} layout="grid" />
                   ))}
                 </div>
               )}
-              <Card ref={cardRef} className={cn("overflow-auto p-3 sm:p-6", !editMode && "max-md:hidden")}>
+              <Card
+                ref={cardRef}
+                className={cn(
+                  "overflow-auto p-3 sm:p-6",
+                  !editMode && (view === "grid" ? "hidden lg:block" : view === "auto" ? "max-md:portrait:hidden" : ""),
+                )}
+              >
                 <div
                   className="relative"
                   style={
                     fitScale < 1
-                      ? { width: availableWidth, height: (canvasHeight - 40) * fitScale + 24 }
+                      ? { width: Math.min(availableWidth, contentWidth * fitScale), height: contentHeight * fitScale }
                       : { width: canvasWidth, height: canvasHeight, minWidth: "100%" }
                   }
                 >

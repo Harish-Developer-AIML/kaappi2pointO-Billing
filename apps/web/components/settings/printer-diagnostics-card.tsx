@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, RefreshCw, XCircle } from "lucide-react";
+import { Banknote, CheckCircle2, ChefHat, Printer, RefreshCw, XCircle } from "lucide-react";
 import { useState } from "react";
 import { StatusNote, useNoteToast } from "@/components/ui/status-note";
 import { Button } from "@/components/ui/button";
@@ -197,12 +197,12 @@ export function PrinterDiagnosticsCard() {
               ))}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="printer-codepage">Character set</Label>
               <select
                 id="printer-codepage"
-                className="h-10 rounded-lg border border-border bg-background px-2 text-sm"
+                className="h-10 w-full min-w-0 truncate rounded-lg border border-border bg-background px-2 text-sm"
                 value={branch.printerCodepage}
                 disabled={updateBranch.isPending}
                 onChange={(e) => save({ printerCodepage: e.target.value as typeof branch.printerCodepage })}
@@ -214,13 +214,14 @@ export function PrinterDiagnosticsCard() {
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="printer-columns">Columns (blank = {branch.printerPaperWidthMm === 58 ? 32 : 48})</Label>
+              <Label htmlFor="printer-columns">Characters per line</Label>
               <Input
                 id="printer-columns"
                 type="number"
                 min={20}
                 max={64}
                 inputMode="numeric"
+                placeholder={`${branch.printerPaperWidthMm === 58 ? 32 : 48} (standard for ${branch.printerPaperWidthMm} mm)`}
                 value={columns ?? (branch.printerColumns ?? "")}
                 onChange={(e) => setColumns(e.target.value)}
                 onBlur={() => {
@@ -237,16 +238,18 @@ export function PrinterDiagnosticsCard() {
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            Text is sent as native printer text, not an image. Run &ldquo;Send test print&rdquo; after changing these:
+            Text is sent as native printer text, not an image. Print a &ldquo;Test bill&rdquo; after changing these:
             the ruler line should fill one line exactly and the accents line should read correctly.
           </p>
         </div>
       )}
 
-      <div>
+      <div className="flex flex-col gap-2">
+        <Label>Try the printer</Label>
+        <div className="grid grid-cols-2 gap-2">
         <Button
           variant="outline"
-          size="sm"
+          className="h-11"
           disabled={testPrint.isPending}
           onClick={() =>
             testPrint.mutate(undefined, {
@@ -256,12 +259,12 @@ export function PrinterDiagnosticsCard() {
             })
           }
         >
-          {testPrint.isPending ? "Printing…" : "Send test print"}
+          <Printer className="h-4 w-4" />
+          {testPrint.isPending ? "Printing…" : "Test bill"}
         </Button>
         <Button
           variant="outline"
-          size="sm"
-          className="ml-2"
+          className="h-11"
           disabled={testKot.isPending}
           onClick={() =>
             testKot.mutate(undefined, {
@@ -271,12 +274,12 @@ export function PrinterDiagnosticsCard() {
             })
           }
         >
-          {testKot.isPending ? "Printing…" : "Test kitchen ticket"}
+          <ChefHat className="h-4 w-4" />
+          {testKot.isPending ? "Printing…" : "Kitchen ticket"}
         </Button>
         <Button
           variant="outline"
-          size="sm"
-          className="ml-2"
+          className="col-span-2 h-11"
           disabled={openDrawer.isPending}
           onClick={() =>
             openDrawer.mutate(branchId, {
@@ -286,9 +289,11 @@ export function PrinterDiagnosticsCard() {
             })
           }
         >
+          <Banknote className="h-4 w-4" />
           Open cash drawer
         </Button>
-        <p className="mt-2 text-xs text-muted-foreground">
+        </div>
+        <p className="text-xs text-muted-foreground">
           The drawer must be plugged into the printer&rsquo;s drawer (RJ11) port. Receipts printed via USB for cash
           payments open it automatically.
         </p>

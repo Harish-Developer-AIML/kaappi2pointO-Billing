@@ -97,3 +97,29 @@ describe('receipt HTML bill settings', () => {
     expect(html).toContain('Nandri!');
   });
 });
+
+describe('receipt HTML logos', () => {
+  const logo = {
+    image: 'data:image/png;base64,iVBORw0KGgo=',
+    raster: { width: 8, height: 1, data: 'AA==' },
+  };
+
+  it('shows the logos left and right of the shop details', () => {
+    const html = buildReceiptHtml({
+      ...base,
+      bill: { ...DEFAULT_BILL_SETTINGS, logoLeft: logo, logoRight: logo },
+    });
+    expect(
+      html.match(
+        /<img class="logo" src="data:image\/png;base64,iVBORw0KGgo="/g,
+      ),
+    ).toHaveLength(2);
+    expect(html).toMatch(
+      /<div class="head"><div class="side"><img[^>]+><\/div><div class="head-text"><h1>Bar<\/h1>/,
+    );
+  });
+
+  it('no logos: the plain centred header', () => {
+    expect(buildReceiptHtml(base)).not.toContain('class="head"');
+  });
+});

@@ -65,6 +65,7 @@ export const DISABLED_FEATURES: readonly string[] = [
   "/reservations",
   "/kds", // Kitchen Display
   "/delivery",
+  "/operations",
 ];
 
 /** False for a turned-off screen (or any page under it). */

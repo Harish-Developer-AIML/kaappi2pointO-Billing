@@ -23,6 +23,14 @@ export interface PrinterProfile {
 
 // 58 mm heads print 384 dots, 80 mm heads 576 dots; Font A is 12 dots wide.
 export const DEFAULT_COLUMNS: Record<PaperWidthMm, number> = { 58: 32, 80: 48 };
+export const PAPER_DOTS: Record<PaperWidthMm, number> = { 58: 384, 80: 576 };
+
+/** A 1-bit picture for the printer (see EscposWriter.logos). */
+export interface RasterImage {
+  width: number;
+  height: number;
+  data: Buffer;
+}
 export const CODEPAGE_NAMES = Object.keys(CODEPAGES) as CodepageName[];
 
 export function resolveProfile(
@@ -258,6 +266,52 @@ export class EscposWriter {
       Buffer.from([GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30]),
       Buffer.from('\n'),
       CMD.alignLeft,
+    );
+    return this;
+  }
+
+  /**
+   * Logos at the top of a bill: `left` against the left edge and `right`
+   * against the right edge of the paper (58 mm = 384 dots, 80 mm = 576), as
+   * one GS v 0 raster band, each vertically centred. A logo is a 1-bit
+   * picture prepared by Settings › Bill: rows of width/8 bytes, first bit =
+   * leftmost dot, 1 = black (width a multiple of 8, so no bit shifting).
+   */
+  logos(left: RasterImage | null, right: RasterImage | null): this {
+    const dots = PAPER_DOTS[this.profile.paperWidthMm];
+    const rowBytes = dots / 8;
+    const images = [left, right].filter((i): i is RasterImage => !!i);
+    if (images.length === 0) return this;
+    const height = Math.max(...images.map((i) => i.height));
+    const band = Buffer.alloc(rowBytes * height);
+    const place = (img: RasterImage, atByte: number) => {
+      const imgBytes = Math.min(img.width / 8, rowBytes - atByte);
+      const top = Math.floor((height - img.height) / 2);
+      for (let y = 0; y < img.height; y++) {
+        img.data.copy(
+          band,
+          (top + y) * rowBytes + atByte,
+          y * (img.width / 8),
+          y * (img.width / 8) + imgBytes,
+        );
+      }
+    };
+    if (left) place(left, 0);
+    if (right) place(right, Math.max(0, rowBytes - right.width / 8));
+    this.chunks.push(
+      CMD.alignLeft,
+      Buffer.from([
+        GS,
+        0x76,
+        0x30,
+        0x00,
+        rowBytes & 0xff,
+        rowBytes >> 8,
+        height & 0xff,
+        height >> 8,
+      ]),
+      band,
+      Buffer.from('\n'),
     );
     return this;
   }

@@ -22,20 +22,23 @@ import { formatCurrency } from "@/lib/format";
 import { openEntity } from "@/lib/entity-events";
 import { cn } from "@/lib/utils";
 
-const TABS: { key: OrderTab; label: string }[] = [
-  { key: "pending", label: "New (to accept)" },
+// `off: true` = turned off in the UI (kept in code, like DISABLED_FEATURES in
+// nav-items.ts). Kaappi Biller takes no online orders, so "New (to accept)"
+// is off; it still appears if an order is ever waiting, so none is missed.
+const TABS: { key: OrderTab; label: string; off?: boolean }[] = [
+  { key: "pending", label: "New (to accept)", off: true },
   { key: "active", label: "In progress" },
   { key: "history", label: "History" },
 ];
 
 // One chip = one filter. Online/Offline filter by channel, the rest by how
 // the order is fulfilled.
-const FILTERS: { key: string; label: string; channel?: OrderChannel; type?: string }[] = [
+const FILTERS: { key: string; label: string; channel?: OrderChannel; type?: string; off?: boolean }[] = [
   { key: "all", label: "All" },
-  { key: "online", label: "Online", channel: "ONLINE" },
-  { key: "offline", label: "Offline", channel: "STAFF" },
+  { key: "online", label: "Online", channel: "ONLINE", off: true },
+  { key: "offline", label: "Offline", channel: "STAFF", off: true },
   { key: "takeaway", label: "Takeaway", type: "TAKEAWAY" },
-  { key: "delivery", label: "Delivery", type: "DELIVERY" },
+  { key: "delivery", label: "Delivery", type: "DELIVERY", off: true },
   { key: "dinein", label: "Dine-in", type: "DINE_IN" },
 ];
 
@@ -57,7 +60,7 @@ function timeAgo(iso: string) {
 
 export default function OrdersPage() {
   const { branchId } = useBranch();
-  const [tab, setTab] = useState<OrderTab>("pending");
+  const [tab, setTab] = useState<OrderTab>(TABS.find((t) => !t.off)?.key ?? "active");
   const [filterKey, setFilterKey] = useState("all");
   const filter = FILTERS.find((f) => f.key === filterKey) ?? FILTERS[0];
   const { data: orders, isLoading } = useManagedOrders(branchId, tab, filter.channel, filter.type);
@@ -90,14 +93,14 @@ export default function OrdersPage() {
       <div>
         <h1 className="text-[32px] font-semibold tracking-tight text-foreground">Orders</h1>
         <p className="text-sm text-muted-foreground">
-          Accept new online orders and manage everything in progress
+          Orders in progress and the history of every bill
         </p>
       </div>
 
       <ScanOrderInput branchId={branchId} />
 
       <div className="flex flex-wrap gap-2">
-        {TABS.map((t) => (
+        {TABS.filter((t) => !t.off || (t.key === "pending" && pendingCount > 0) || t.key === tab).map((t) => (
           <button key={t.key} type="button" onClick={() => {
               setTab(t.key);
               setSelected(new Set());
@@ -113,7 +116,7 @@ export default function OrdersPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
+        {FILTERS.filter((f) => !f.off).map((f) => (
           <button
             key={f.key}
             type="button"

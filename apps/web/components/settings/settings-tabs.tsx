@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { ResponsiveTabs } from "@/components/ui/nav-picker";
 import { hasPermission, useCurrentUser } from "@/hooks/use-auth";
 import { useNavBadges } from "@/hooks/use-nav-badges";
 import { useBranch } from "@/hooks/use-branch";
@@ -47,20 +48,40 @@ export function SettingsTabs() {
       (!tab.country || branchCountry === tab.country),
   );
 
+  const router = useRouter();
+  const isActive = (href: string) =>
+    href === "/settings" ? pathname === "/settings" : !!pathname?.startsWith(href);
+  const active = visibleTabs.find((t) => isActive(t.href)) ?? visibleTabs[0];
+
   return (
-    <nav className="-mx-1 flex min-w-0 gap-1 overflow-x-auto border-b border-border px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <>
+    {/* Phones: one "Section" button with a list instead of a row of 11 tabs
+        cut off at the screen edge. */}
+    {active && (
+      <ResponsiveTabs
+        mobileOnly
+        label="Settings section"
+        items={visibleTabs.map((t) => ({
+          id: t.href,
+          label: t.label,
+          hint: badges.settingsTabs[t.href] ? "•" : undefined,
+        }))}
+        value={active.href}
+        onChange={(href) => router.push(href)}
+      />
+    )}
+    <nav className="-mx-1 hidden min-w-0 gap-1 overflow-x-auto border-b border-border px-1 [scrollbar-width:none] lg:flex [&::-webkit-scrollbar]:hidden">
       {/* Scrolls sideways on its own on narrow screens; without overflow-x-auto
           the row of 10+ tabs widened the whole page and cut off the form. */}
       {visibleTabs.map((tab) => {
-        const isActive =
-          tab.href === "/settings" ? pathname === "/settings" : pathname?.startsWith(tab.href);
+        const tabActive = isActive(tab.href);
         return (
           <Link
             key={tab.href}
             href={tab.href}
             className={cn(
               "flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 pb-3 text-sm font-medium transition-colors",
-              isActive
+              tabActive
                 ? "border-primary text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
@@ -71,5 +92,6 @@ export function SettingsTabs() {
         );
       })}
     </nav>
+    </>
   );
 }

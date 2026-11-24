@@ -75,6 +75,52 @@ export default function InventoryPage() {
             ))}
           </div>
         ) : filtered && filtered.length > 0 ? (
+          <>
+          {/* Phones: one card per ingredient (the 7-column table ran off the screen). */}
+          <ul className="flex flex-col divide-y divide-border md:hidden">
+            {filtered.map((i) => {
+              const isLow = Number(i.currentStock) <= Number(i.reorderLevel);
+              return (
+                <li key={i.id} className="flex flex-col gap-2 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <span className="truncate text-base font-semibold text-foreground">{i.name}</span>
+                      {isLow && (
+                        <Badge variant="destructive" className="w-fit gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          Low stock
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-lg font-semibold tabular-nums text-foreground">
+                        {i.currentStock} <span className="text-sm font-medium text-muted-foreground">{i.unit}</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">in stock</p>
+                    </div>
+                  </div>
+                  <dl className="grid grid-cols-3 gap-2 rounded-lg bg-secondary/50 px-3 py-2 text-xs">
+                    <div>
+                      <dt className="text-muted-foreground">Reorder at</dt>
+                      <dd className="font-semibold tabular-nums text-foreground">{i.reorderLevel}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Cost / {i.unit.toLowerCase()}</dt>
+                      <dd className="font-semibold tabular-nums text-foreground">{formatCurrency(i.costPerUnit)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Stock value</dt>
+                      <dd className="font-semibold tabular-nums text-foreground">
+                        {formatCurrency(Number(i.currentStock) * Number(i.costPerUnit))}
+                      </dd>
+                    </div>
+                  </dl>
+                  <AdjustStockDialog branchId={branchId} ingredient={i} />
+                </li>
+              );
+            })}
+          </ul>
+          <div className="hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -122,6 +168,8 @@ export default function InventoryPage() {
               })}
             </TableBody>
           </Table>
+          </div>
+          </>
         ) : (
           <div className="flex flex-col items-center gap-2 py-16 text-center">
             <p className="text-sm font-medium text-foreground">No ingredients yet</p>

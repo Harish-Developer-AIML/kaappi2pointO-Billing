@@ -3,6 +3,21 @@
 Kaappi Biller versions. `major.minor.patch`: patch = bug fixes, minor = new
 features, major = big or breaking changes. Bump with `scripts/bump-version.sh`.
 
+## 1.3.0 — 2026-11-24
+
+- Bill logos: a left and a right logo at the top of the bill (screen/PDF and
+  thermal printers), chosen in Settings › Bill.
+- Menu › Upload JSON: add and update the whole menu from one file, with a
+  preview first and a sample file. Nothing is deleted; no duplicates.
+- Languages: English and Tamil (தமிழ்) only; Spanish/French turned off.
+  Tamil covers the menu bar so far.
+- Orders page: New (to accept), Online, Offline and Delivery turned off.
+- Operations turned off.
+- Tables: Auto / Grid / Floor plan switch; turned sideways, the floor plan
+  fits the screen.
+- Phones: Inventory and Settings use a section menu; ingredients as cards;
+  tidier printer settings.
+
 ## 1.2.0 — 2026-11-24
 
 - Version number shown in the app (sidebar and Settings), one `VERSION` file.

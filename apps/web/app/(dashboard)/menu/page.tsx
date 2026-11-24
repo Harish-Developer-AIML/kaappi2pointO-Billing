@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { AddCategoryDialog } from "@/components/menu/add-category-dialog";
 import { AddItemDialog } from "@/components/menu/add-item-dialog";
+import { ImportMenuDialog } from "@/components/menu/import-menu-dialog";
 import { ComboComponentsDialog } from "@/components/menu/combo-components-dialog";
 import { EditCategoryDialog } from "@/components/menu/edit-category-dialog";
 import { EditItemDialog } from "@/components/menu/edit-item-dialog";
@@ -73,6 +74,7 @@ export default function MenuPage() {
           <h1 className="text-[32px] font-semibold tracking-tight text-foreground">Menu</h1>
           <p className="text-sm text-muted-foreground">{canManage ? "Categories, items, and pricing" : "Categories, items, and pricing (view only)"}</p>
         </div>
+        {canManage && <ImportMenuDialog branchId={branchId} />}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_1fr]">
