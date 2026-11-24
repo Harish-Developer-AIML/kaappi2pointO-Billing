@@ -21,12 +21,14 @@ import {
   useAddOrderItems,
   useCreateOrder,
   useOpenOrdersForTable,
+  useOrder,
   type CreatedOrder,
   type OpenOrder,
 } from "@/hooks/use-orders";
 import { useFloors, type RestaurantTable } from "@/hooks/use-tables";
 import { ApiError } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
+import { NO_TABLE, POS_RESET_EVENT } from "@/lib/pos-events";
 import { cn } from "@/lib/utils";
 
 export default function PosPage() {
@@ -94,18 +96,17 @@ function PosPageInner() {
 
   const createOrder = useCreateOrder(branchId);
   const addOrderItems = useAddOrderItems(branchId);
-  const openBillsQuery = useOpenOrdersForTable(
-    branchId,
-    orderType === "DINE_IN" ? tableId || null : null,
-  );
+  const realTableId = orderType === "DINE_IN" && tableId && tableId !== NO_TABLE ? tableId : null;
+  const openBillsQuery = useOpenOrdersForTable(branchId, realTableId);
   const existingOrders = openBillsQuery.data;
   // A table can carry several open bills; the user picks which one gets the
   // new items (default: the newest). Until the table's bills are loaded we do
   // not know whether this is a new bill or a new round, so submitting waits.
-  const checkingTable =
-    orderType === "DINE_IN" && !!tableId && (openBillsQuery.isPending || openBillsQuery.isFetching);
+  const checkingTable = !!realTableId && (openBillsQuery.isPending || openBillsQuery.isFetching);
   const existingOrder =
     existingOrders?.find((o) => o.id === selectedBillId) ?? existingOrders?.[0];
+  // The open bill's items, shown in the cart so reopening a table shows its order.
+  const existingOrderDetail = useOrder(branchId, existingOrder?.id ?? null).data;
 
   const addLine = (
     menuItemId: string,
@@ -199,7 +200,7 @@ function PosPageInner() {
     createOrder.mutate(
       {
         type: orderType,
-        tableId: orderType === "DINE_IN" ? tableId : undefined,
+        tableId: realTableId ?? undefined,
         ...(orderType === "DELIVERY" ? { delivery } : {}),
         ...(orderType !== "DINE_IN" && scheduledFor
           ? { scheduledFor: new Date(scheduledFor).toISOString() }
@@ -239,7 +240,31 @@ function PosPageInner() {
     setScheduledFor("");
   };
 
-  const handleTablePick = (table: RestaurantTable) => setTableId(table.id);
+  const handleTablePick = (table: RestaurantTable) => {
+    setTableId(table.id);
+    // An occupied table opens straight onto its order (phones: the cart sheet).
+    if (table.status === "OCCUPIED") setCartOpen(true);
+  };
+
+  // Point of Sale tapped while already here: back to a fresh table list. A
+  // sent/paid order is closed; an unsent cart stays saved for its table.
+  useEffect(() => {
+    const onReset = () => {
+      if (activeOrder) {
+        resetForNewOrder();
+      } else {
+        const r = switchTableDraft(drafts, tableId, "", lines);
+        setDrafts(r.drafts);
+        setLines(r.lines);
+        setSelectedBillId(null);
+        setTableIdRaw("");
+        setCartOpen(false);
+      }
+      setOrderType("DINE_IN");
+    };
+    window.addEventListener(POS_RESET_EVENT, onReset);
+    return () => window.removeEventListener(POS_RESET_EVENT, onReset);
+  });
 
   // Click-to-order: for a fresh dine-in ticket, land on a visual table grid
   // first — the rest of the flow (menu, cart, bill-or-add-more) is
@@ -275,6 +300,7 @@ function PosPageInner() {
           <PosTablePicker
             floors={floors ?? []}
             onSelect={handleTablePick}
+            onQuickBill={() => setTableId(NO_TABLE)}
             isLoading={floorsQuery.isLoading || branchLoading}
             error={floorsQuery.isError ? floorsQuery.error : null}
             onRetry={() => void floorsQuery.refetch()}
@@ -291,7 +317,11 @@ function PosPageInner() {
             className={cn(
               "min-h-0 overflow-hidden p-5",
               cartOpen
-                ? "max-lg:fixed max-lg:inset-0 max-lg:z-40 max-lg:rounded-none max-lg:p-4 max-lg:pt-[max(1rem,env(safe-area-inset-top))] max-lg:pb-[max(1rem,env(safe-area-inset-bottom))]"
+                ? // Phones: full screen down to the bottom bar, which stays usable
+                  // (Point of Sale there starts the next bill). Same z as the bar,
+                  // which comes later in the page, so its raised button is on top;
+                  // pb-7 keeps that button off the cart's last button.
+                  "max-lg:fixed max-lg:inset-x-0 max-lg:top-0 max-lg:bottom-[calc(4rem+env(safe-area-inset-bottom))] max-lg:z-30 max-lg:rounded-none max-lg:p-4 max-lg:pt-[max(1rem,env(safe-area-inset-top))] max-lg:pb-7"
                 : "max-lg:hidden",
             )}
           >
@@ -324,6 +354,13 @@ function PosPageInner() {
                 onSubmit={handleSubmit}
                 isSubmitting={createOrder.isPending || addOrderItems.isPending}
                 existingOrderNumber={existingOrder?.orderNumber}
+                existingItems={existingOrderDetail?.items.map((i) => ({
+                  id: i.id,
+                  name: i.nameSnapshot,
+                  quantity: i.quantity,
+                  lineTotal: Number(i.lineTotal),
+                }))}
+                existingTotal={existingOrder ? Number(existingOrder.totalAmount) : undefined}
                 onViewExistingOrder={existingOrder ? viewExistingOrder : undefined}
                 openBills={existingOrders?.map((o) => ({ id: o.id, orderNumber: o.orderNumber }))}
                 selectedBillId={existingOrder?.id ?? null}

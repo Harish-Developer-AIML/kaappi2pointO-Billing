@@ -15,6 +15,7 @@ import type { CartLine } from "@/components/pos/cart-line";
 import type { RestaurantTable } from "@/hooks/use-tables";
 import { isFeatureEnabled } from "@/components/layout/nav-items";
 import { formatCurrency } from "@/lib/format";
+import { NO_TABLE } from "@/lib/pos-events";
 import { subtotalOf } from "@/lib/pricing-preview";
 
 export type PosOrderType = "DINE_IN" | "TAKEAWAY" | "DELIVERY";
@@ -37,6 +38,8 @@ export function CartPanel({
   onSubmit,
   isSubmitting,
   existingOrderNumber,
+  existingItems,
+  existingTotal,
   onViewExistingOrder,
   openBills,
   selectedBillId,
@@ -59,6 +62,9 @@ export function CartPanel({
   onSubmit: () => void;
   isSubmitting: boolean;
   existingOrderNumber?: string;
+  /** Items already on the table's open bill (sent to the kitchen). */
+  existingItems?: { id: string; name: string; quantity: number; lineTotal: number }[];
+  existingTotal?: number;
   onViewExistingOrder?: () => void;
   /** All unpaid bills on the selected table (more than one is possible). */
   openBills?: { id: string; orderNumber: string }[];
@@ -101,6 +107,7 @@ export function CartPanel({
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select table">
               {(value: string | null) => {
+                if (value === NO_TABLE) return "No table · Quick bill";
                 const t = tables.find((table) => table.id === value);
                 if (!t) return "Select table";
                 return `${t.name ?? `Table ${t.number}`}${t.status === "OCCUPIED" ? " (occupied)" : ""}`;
@@ -108,6 +115,7 @@ export function CartPanel({
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value={NO_TABLE}>No table · Quick bill</SelectItem>
             {tables.map((t) => (
               <SelectItem key={t.id} value={t.id}>
                 {t.name ?? `Table ${t.number}`} {t.status === "OCCUPIED" ? "(occupied)" : ""}
@@ -176,21 +184,32 @@ export function CartPanel({
         </div>
       )}
       {existingOrderNumber && (
-        <div className="flex items-center justify-between gap-3 rounded-lg bg-secondary/60 px-3 py-2 text-xs text-muted-foreground">
-          <span>
-            This table already has open order{" "}
-            <span className="font-medium text-foreground">#{existingOrderNumber}</span>
-            {lines.length > 0 && " — these items will be added to it as a new round."}
-          </span>
+        // The table's open bill, so reopening a table shows its order here.
+        <div className="flex flex-col gap-2 rounded-xl border border-border bg-secondary/40 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-foreground">On bill #{existingOrderNumber}</p>
+            {existingTotal !== undefined && (
+              <p className="text-sm font-semibold tabular-nums text-foreground">{formatCurrency(existingTotal)}</p>
+            )}
+          </div>
+          {existingItems && existingItems.length > 0 && (
+            <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto text-sm">
+              {existingItems.map((item) => (
+                <li key={item.id} className="flex items-baseline justify-between gap-2 text-muted-foreground">
+                  <span className="min-w-0 truncate">
+                    <span className="font-medium tabular-nums text-foreground">{item.quantity}×</span> {item.name}
+                  </span>
+                  <span className="shrink-0 tabular-nums">{formatCurrency(item.lineTotal)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {lines.length > 0 && (
+            <p className="text-xs text-muted-foreground">The new items below will be added to this bill as a new round.</p>
+          )}
           {onViewExistingOrder && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 shrink-0 px-2 text-xs"
-              onClick={onViewExistingOrder}
-            >
-              View & pay
+            <Button type="button" variant="outline" className="h-10 font-semibold" onClick={onViewExistingOrder}>
+              Bill &amp; pay
             </Button>
           )}
         </div>
@@ -200,7 +219,7 @@ export function CartPanel({
         {lines.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">
             <ShoppingCart className="h-8 w-8 opacity-40" />
-            <p className="text-sm">Cart is empty</p>
+            <p className="text-sm">{existingOrderNumber ? "Add items from the menu for a new round" : "Cart is empty"}</p>
           </div>
         ) : (
           <div className="flex flex-col divide-y divide-border">

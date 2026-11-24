@@ -7,6 +7,7 @@ import { hasPermission } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/context";
 import { useNavBadges } from "@/hooks/use-nav-badges";
+import { onPosLinkClick } from "@/lib/pos-events";
 import { NavDot } from "./nav-dot";
 import { NAV_ITEMS } from "./nav-items";
 
@@ -31,7 +32,10 @@ export function SidebarNav({
             <Link
               key={item.href}
               href={item.href}
-              onClick={onNavigate}
+              onClick={() => {
+                if (item.href === "/pos") onPosLinkClick(pathname);
+                onNavigate?.();
+              }}
               className={cn(
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive

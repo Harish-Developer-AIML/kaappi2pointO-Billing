@@ -26,6 +26,7 @@ import {
   removeOrderItemSchema,
   updateOrderItemSchema,
   updateOrderSchema,
+  resolveBillSettings,
   type BillPreviewDto,
   type CheckoutDto,
   type RemoveOrderItemDto,
@@ -55,6 +56,7 @@ import {
 } from './escpos-usb';
 import { KotPrintService } from './kot-print.service';
 import {
+  printsOnClient,
   sendToBranchPrinter,
   type BranchPrinterTarget,
 } from './printer-transport';
@@ -457,6 +459,7 @@ export class OrdersController {
           ? null
           : await this.verifactu.qrForOrder(order.id),
       },
+      bill: resolveBillSettings(order.branch.billSettings),
     });
     res.type('html').send(html);
   }
@@ -515,6 +518,18 @@ export class OrdersController {
         };
       }
     }
+    if (connection === 'BLUETOOTH') {
+      // The printer is paired with a phone/tablet, not the server: the app on
+      // that device checks and chooses it (Settings › General › Thermal printer there).
+      return {
+        connection,
+        lpDevices,
+        libusbPrinter,
+        network,
+        canPrint: true,
+        notes: [],
+      };
+    }
     const canPrint =
       connection === 'NETWORK'
         ? network?.reachable === true
@@ -563,8 +578,7 @@ export class OrdersController {
       kind === 'kot'
         ? buildKotTestSlip(profile).buffer
         : buildTestSlip(profile);
-    await this.deliver(target, buffer);
-    return { ok: true, profile };
+    return { ok: true, profile, ...(await this.deliver(target, buffer)) };
   }
 
   // Opens the cash drawer wired to the thermal printer ("No sale" / test).
@@ -583,8 +597,7 @@ export class OrdersController {
       await this.branchAccess.assertAccess(user.restaurantId, branchId);
       target = await this.ordersService.printerTarget(branchId);
     }
-    await this.deliver(target, buildOpenDrawer());
-    return { ok: true };
+    return { ok: true, ...(await this.deliver(target, buildOpenDrawer())) };
   }
 
   // Bill on the thermal printer: native ESC/POS text, branch paper width and
@@ -640,6 +653,7 @@ export class OrdersController {
       profile,
       // A bill handed over before payment never pops the till.
       openDrawer: drawer === 'true' && !overrides.isProvisional,
+      bill: resolveBillSettings(order.branch.billSettings),
     });
     return this.sendJob(job, order.branch);
   }
@@ -672,9 +686,20 @@ export class OrdersController {
     return this.printKot(user, branchId, id, reprint);
   }
 
-  private async deliver(target: BranchPrinterTarget, buffer: Buffer) {
+  /**
+   * Sends a job to the branch printer. For a Bluetooth printer (paired with
+   * the Android device showing the app) the server can't reach it: the job's
+   * ESC/POS bytes go back to the app as `escpos` (base64) and its print
+   * bridge sends them (apps/web/lib/print.ts, PrintBridge.java).
+   */
+  private async deliver(
+    target: BranchPrinterTarget,
+    buffer: Buffer,
+  ): Promise<{ escpos?: string }> {
+    if (printsOnClient(target)) return { escpos: buffer.toString('base64') };
     try {
       await sendToBranchPrinter(target, buffer);
+      return {};
     } catch (err) {
       if (err instanceof PrinterNotFoundError) {
         throw new ServiceUnavailableException(err.message);
@@ -684,9 +709,10 @@ export class OrdersController {
   }
 
   private async sendJob(job: PrintResult, target: BranchPrinterTarget) {
-    await this.deliver(target, job.buffer);
+    const delivered = await this.deliver(target, job.buffer);
     return {
       ok: true,
+      ...delivered,
       // Non-empty when the code page could not represent some characters;
       // the ticket says so on paper and the UI offers the browser fallback.
       unsupportedChars: job.unsupportedChars,

@@ -1,3 +1,7 @@
+import {
+  DEFAULT_BILL_SETTINGS,
+  type BillSettings,
+} from '@nodedr-restaurant/types';
 import { readJob } from './escpos/read-job';
 import {
   buildKotEscPosJob,
@@ -304,7 +308,7 @@ describe('VERI*FACTU QR on the receipt', () => {
       restaurantName: 'Casa Ñandú',
       currency: 'EUR',
       branch,
-      order: { ...o, verifactu } as never,
+      order: { ...o, verifactu },
       profile: resolveProfile({ paperWidthMm: 80 }),
       ...fmt,
     });
@@ -383,5 +387,60 @@ describe('test slip', () => {
     expect(text).toContain('12345678901234567890123456789012');
     expect(text).toContain('58 mm - 32 columns - CP858');
     expect(text).toContain('áéíóú ñ ü ¿? ¡! € £');
+  });
+});
+
+describe('bill settings (Settings › Bill)', () => {
+  const indianBranch = {
+    ...branch,
+    name: 'Anna Nagar',
+    address: '2nd Avenue, Chennai',
+    gstNumber: '33ABCDE1234F1Z5',
+    taxRegime: 'INDIA_GST' as const,
+    taxId: null,
+  };
+  const print = (bill: Partial<BillSettings> = {}) =>
+    readJob(
+      buildReceiptEscPosJob({
+        restaurantName: 'Kaappi',
+        currency: 'INR',
+        branch: indianBranch,
+        order,
+        bill: { ...DEFAULT_BILL_SETTINGS, ...bill },
+        profile: resolveProfile({ paperWidthMm: 80 }),
+        ...fmt,
+      }).buffer,
+    );
+
+  it('prints the table number on the right of the order line', () => {
+    const { lines } = print();
+    const line = lines.find((l) => l.includes('Table: T7'))!;
+    expect(line.startsWith('Order: #20261018-0042')).toBe(true);
+    expect(line.endsWith('Table: T7')).toBe(true);
+    expect(line).toHaveLength(48);
+  });
+
+  it('a bill without GST has no tax lines', () => {
+    const withGst = print().text;
+    expect(withGst).toContain('CGST');
+    const { text } = print({ showTaxBreakup: false, showTaxId: false });
+    expect(text).not.toContain('GST');
+    expect(text).not.toContain('@ 10%');
+    expect(text).toContain('TOTAL');
+  });
+
+  it('leaves out the header parts that are switched off and prints the own footer', () => {
+    const { text } = print({
+      showAddress: false,
+      showBranchName: false,
+      showTable: false,
+      headerNote: 'Pure veg',
+      footerText: 'Come again!',
+    });
+    expect(text).not.toContain('Chennai');
+    expect(text).not.toContain('Anna Nagar');
+    expect(text).not.toContain('T7');
+    expect(text).toContain('Pure veg');
+    expect(text).toContain('Come again!');
   });
 });

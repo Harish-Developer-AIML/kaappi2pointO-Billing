@@ -22,7 +22,7 @@ ln -s "$SRC/node_modules" "$WORK/node_modules"
 rm -rf "$WORK/app/kiosk" "$WORK/app/order" "$WORK/app/(dashboard)/inventory/purchase-orders/[id]"
 
 echo "▶ Building the static export (BUILD_TARGET=android)…"
-(cd "$WORK" && BUILD_TARGET=android NEXT_TELEMETRY_DISABLED=1 ./node_modules/.bin/next build)
+(cd "$WORK" && BUILD_TARGET=android APP_VERSION="$(tr -d '[:space:]' < "$ROOT/VERSION")" NEXT_TELEMETRY_DISABLED=1 ./node_modules/.bin/next build)
 
 rm -rf "$OUT"
 mkdir -p "$(dirname "$OUT")"

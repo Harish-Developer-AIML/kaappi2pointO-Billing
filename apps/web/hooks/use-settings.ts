@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  BillPreviewRequest,
   BranchSettingsDto,
   RestaurantSettingsDto,
   TaxMode,
@@ -41,9 +42,11 @@ export interface BranchSettings {
   printerPaperWidthMm: 58 | 80;
   printerCodepage: "CP437" | "CP850" | "CP858" | "CP1252";
   printerColumns: number | null;
-  printerConnection: "USB" | "NETWORK";
+  printerConnection: "USB" | "NETWORK" | "BLUETOOTH";
   printerHost: string | null;
   printerPort: number;
+  /** Settings › Bill (null = the standard bill); read with resolveBillSettings. */
+  billSettings: unknown;
 }
 
 export function useSettings(branchId: string | null) {
@@ -86,5 +89,22 @@ export function useSetKiosk(branchId: string | null) {
     mutationFn: (action: "enable" | "rotate" | "disable") =>
       api.post<{ kioskToken: string | null }>(`/settings/kiosk/${action}?branchId=${branchId}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["settings", branchId] }),
+  });
+}
+
+/** Settings › Bill live preview: the sample bill's HTML for the settings being edited. */
+export function useBillPreview(branchId: string | null) {
+  return useMutation({
+    // HTML, not JSON, so plain fetch (same cookie session as the api client).
+    mutationFn: async (req: BillPreviewRequest) => {
+      const res = await fetch(`/api/v1/settings/bill-preview?branchId=${branchId}`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req),
+      });
+      if (!res.ok) throw new Error(`Preview failed (${res.status})`);
+      return res.text();
+    },
   });
 }

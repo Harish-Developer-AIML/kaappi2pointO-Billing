@@ -1,6 +1,7 @@
 "use client";
 
 import type { TableStatusDto } from "@nodedr-restaurant/types";
+import { Zap } from "lucide-react";
 import { useState } from "react";
 import { TABLE_STATUS_UI, TABLE_TILE_BASE, TableTileBody } from "@/components/tables/table-status-ui";
 import { ResponsiveTabs } from "@/components/ui/nav-picker";
@@ -25,6 +26,7 @@ const STATUS_LABEL: Record<TableStatusDto, string> = {
 export function PosTablePicker({
   floors,
   onSelect,
+  onQuickBill,
   isLoading = false,
   error = null,
   onRetry,
@@ -32,6 +34,8 @@ export function PosTablePicker({
 }: {
   floors: Floor[];
   onSelect: (table: RestaurantTable) => void;
+  /** Counter / coffee-shop sale: bill without a table. */
+  onQuickBill?: () => void;
   isLoading?: boolean;
   /** The floor request failed: say so, never show it as "no tables". */
   error?: unknown;
@@ -40,6 +44,22 @@ export function PosTablePicker({
 }) {
   const [activeFloorId, setActiveFloorId] = useState<string | undefined>(undefined);
   const activeFloor = floors.find((f) => f.id === (activeFloorId ?? floors[0]?.id));
+
+  const quickBill = onQuickBill ? (
+    <button
+      type="button"
+      onClick={onQuickBill}
+      className="flex min-h-16 w-full shrink-0 items-center gap-3 rounded-2xl border-2 border-primary/30 bg-primary/5 px-4 py-3 text-left transition-colors hover:border-primary/60 active:scale-[0.99]"
+    >
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+        <Zap className="size-5" />
+      </span>
+      <span className="flex min-w-0 flex-col">
+        <span className="text-base font-semibold text-foreground">Quick bill (no table)</span>
+        <span className="text-xs text-muted-foreground">Counter sale: pick items and bill straight away</span>
+      </span>
+    </button>
+  ) : null;
 
   if (error && floors.length === 0) {
     return <QueryError error={error} what="the tables" onRetry={() => onRetry?.()} retrying={retrying} />;
@@ -55,14 +75,18 @@ export function PosTablePicker({
   }
   if (floors.length === 0) {
     return (
-      <p className="py-10 text-center text-sm text-muted-foreground">
-        No tables are set up for this branch yet. A manager can add them under Tables.
-      </p>
+      <div className="flex flex-col gap-4">
+        {quickBill}
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          No tables are set up for this branch yet. A manager can add them under Tables.
+        </p>
+      </div>
     );
   }
 
   return (
     <div className="flex h-full flex-col gap-4">
+      {quickBill}
       {floors.length > 1 && (
         <ResponsiveTabs
           label="Floor"

@@ -28,7 +28,7 @@ JAR="$SDK/platforms/android-35/android.jar"
   exit 1
 }
 
-VERSION_NAME="1.1.0"
+VERSION_NAME="$(tr -d '[:space:]' < ../../VERSION)" # repo-root VERSION (scripts/bump-version.sh)
 VERSION_CODE="$(date +%y%m%d%H)" # newer build always installs over the old one
 
 # ── The bundled system (staged once; REBUILD=1 to refresh) ──────────────────

@@ -16,9 +16,11 @@
 import { qrSvg } from '../verifactu/verifactu.qr';
 import type { ReceiptVerifactu } from './escpos-receipt';
 import {
+  DEFAULT_BILL_SETTINGS,
   resolveTaxIdLabel,
   resolveTaxLabel,
   TAX_REGIME_PRESETS,
+  type BillSettings,
   type TaxMode,
   type TaxRegime,
 } from '@nodedr-restaurant/types';
@@ -83,6 +85,7 @@ export function buildReceiptHtml({
   branch,
   currency,
   order,
+  bill = DEFAULT_BILL_SETTINGS,
 }: {
   restaurantName: string;
   branch: {
@@ -97,6 +100,8 @@ export function buildReceiptHtml({
   };
   currency: string;
   order: ReceiptOrder;
+  /** What the bill shows (Settings › Bill). */
+  bill?: BillSettings;
 }): string {
   const sym = CURRENCY_SYMBOLS[currency] ?? `${currency} `;
   const money = (n: number) => `${sym}${Number(n).toFixed(2)}`;
@@ -118,6 +123,8 @@ export function buildReceiptHtml({
       return `
         <tr>
           <td>${esc(item.nameSnapshot)}${modifierLines}${
+            bill.showTaxBreakup &&
+            bill.showItemTax &&
             Number(item.taxRateSnapshot) > 0
               ? `<div class="sub">${esc(taxLabel)} @ ${item.taxRateSnapshot}%</div>`
               : ''
@@ -130,7 +137,7 @@ export function buildReceiptHtml({
     .join('');
 
   const totalRows: [string, string][] = [];
-  if (branch.taxMode === 'EXCLUSIVE') {
+  if (branch.taxMode === 'EXCLUSIVE' && bill.showTaxBreakup) {
     // US-style: show the pre-tax subtotal, then add tax as its own line —
     // order.subtotal/taxAmount are unchanged, this only reslices the
     // display (see pricing.ts: the stored subtotal already has tax baked
@@ -145,7 +152,7 @@ export function buildReceiptHtml({
         `- ${money(order.discountAmount)}`,
       ]);
     }
-    if (order.taxAmount > 0) {
+    if (bill.showTaxBreakup && order.taxAmount > 0) {
       totalRows.push([taxLabel, money(order.taxAmount)]);
     }
   } else {
@@ -158,7 +165,7 @@ export function buildReceiptHtml({
         `- ${money(order.discountAmount)}`,
       ]);
     }
-    if (order.taxAmount > 0) {
+    if (bill.showTaxBreakup && order.taxAmount > 0) {
       // Prices are tax-inclusive (see ARCHITECTURE.md) — this is a breakup
       // of tax already inside the total above, not an additional charge.
       if (TAX_REGIME_PRESETS[branch.taxRegime].splitCgstSgst) {
@@ -201,6 +208,19 @@ export function buildReceiptHtml({
         </table>`
       : '';
 
+  const headerParts = [
+    bill.showBranchName ? esc(branch.name) : '',
+    bill.showAddress && branch.address ? esc(branch.address) : '',
+    bill.showPhone && branch.phone ? `Ph: ${esc(branch.phone)}` : '',
+    bill.showTaxId && taxIdValue
+      ? `${esc(taxIdLabel)}: ${esc(taxIdValue)}`
+      : '',
+    bill.headerNote ? esc(bill.headerNote) : '',
+  ].filter(Boolean);
+  const headerBlock = headerParts.length
+    ? `<p class="center muted">${headerParts.join('<br>')}</p>`
+    : '';
+
   return `<!doctype html>
 <html>
 <head>
@@ -226,6 +246,11 @@ export function buildReceiptHtml({
   .vf { text-align: center; font-size: 11px; }
   .vf svg { display: block; margin: 4px auto; }
   .footer { text-align: center; margin-top: 6px; font-size: 11px; }
+  .title { text-align: center; font-weight: 700; font-size: 13px; letter-spacing: 0.04em; margin: 2px 0 4px; }
+  .meta td { font-size: 11px; color: #555; line-height: 1.35; }
+  .meta .tbl { text-align: right; vertical-align: top; white-space: nowrap; padding-left: 8px; }
+  .meta .tbl span { display: block; font-size: 10px; text-transform: uppercase; color: #777; }
+  .meta .tbl strong { font-size: 15px; color: #111; }
   @page { size: 80mm auto; margin: 0; }
   @media print {
     html, body { width: 80mm; }
@@ -238,19 +263,18 @@ export function buildReceiptHtml({
     window.addEventListener('message', function (e) { if (e.data === 'print') window.print(); });
   </script>
   <div class="receipt">
-    <h1>${esc(restaurantName)}</h1>
-    <p class="center muted">
-      ${esc(branch.name)}${branch.address ? `<br>${esc(branch.address)}` : ''}
-      ${branch.phone ? `<br>Ph: ${esc(branch.phone)}` : ''}
-      ${taxIdValue ? `<br>${esc(taxIdLabel)}: ${esc(taxIdValue)}` : ''}
-    </p>
+    ${bill.showRestaurantName ? `<h1>${esc(restaurantName)}</h1>` : ''}
+    ${headerBlock}
     <hr class="rule">
-    <p class="muted">
-      ${esc(dateStr)}<br>
-      Order: #${esc(order.orderNumber)} · ${esc(order.type.replace('_', ' '))}
-      ${order.table ? `<br>Table: ${esc(order.table.label)}` : ''}
-      ${order.customer ? `<br>Guest: ${esc(order.customer.name)}${order.customer.phone ? ` · ${esc(order.customer.phone)}` : ''}` : ''}
-    </p>
+    ${bill.billTitle ? `<p class="title">${esc(bill.billTitle)}</p>` : ''}
+    <table class="meta"><tr>
+      <td>
+        ${esc(dateStr)}<br>
+        Order: #${esc(order.orderNumber)}${bill.showOrderType ? ` · ${esc(order.type.replace('_', ' '))}` : ''}
+        ${bill.showCustomer && order.customer ? `<br>Guest: ${esc(order.customer.name)}${order.customer.phone ? ` · ${esc(order.customer.phone)}` : ''}` : ''}
+      </td>
+      ${bill.showTable && order.table ? `<td class="tbl"><span>Table</span><strong>${esc(order.table.label)}</strong></td>` : ''}
+    </tr></table>
     <hr class="rule">
     <table>
       <thead>
@@ -275,11 +299,13 @@ export function buildReceiptHtml({
         : ''
     }
     <hr class="rule">
-    <p class="footer">${
+    ${
       order.isProvisional
-        ? 'Bill only &mdash; not a receipt. Payment pending.'
-        : 'Thank you! Visit again.'
-    }</p>
+        ? '<p class="footer">Bill only &mdash; not a receipt. Payment pending.</p>'
+        : bill.footerText
+          ? `<p class="footer">${esc(bill.footerText)}</p>`
+          : ''
+    }
   </div>
 </body>
 </html>`;

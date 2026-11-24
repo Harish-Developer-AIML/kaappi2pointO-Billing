@@ -12,6 +12,13 @@ import { useSettings, useUpdateBranchSettings } from "@/hooks/use-settings";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError } from "@/lib/api";
+import { BluetoothPrinterPicker } from "./bluetooth-printer-picker";
+
+const CONNECTION_LABEL = {
+  USB: "USB (on the main device)",
+  NETWORK: "Network (IP address)",
+  BLUETOOTH: "Bluetooth (this phone)",
+} as const;
 
 export function PrinterDiagnosticsCard() {
   const { branchId } = useBranch();
@@ -27,7 +34,10 @@ export function PrinterDiagnosticsCard() {
   const [columns, setColumns] = useState<string | null>(null);
   const save = (dto: Parameters<typeof updateBranch.mutate>[0]) =>
     updateBranch.mutate(dto, {
-      onSuccess: () => toast.success("Printer settings saved"),
+      onSuccess: () => {
+        toast.success("Printer settings saved");
+        refetch(); // the check depends on the connection (USB / network / Bluetooth)
+      },
       onError: (err) => toast.error(err instanceof ApiError ? err.message : "Could not save printer settings"),
     });
   const openDrawer = useOpenCashDrawer();
@@ -38,8 +48,8 @@ export function PrinterDiagnosticsCard() {
         <div>
           <h2 className="text-sm font-semibold text-foreground">Thermal printer (receipts &amp; kitchen tickets)</h2>
           <p className="text-sm text-muted-foreground">
-            Native ESC/POS printing, independent of the browser print dialog. The printer must be reachable
-            from the machine running Kaappi Biller: USB on a Linux host, or a network printer on port 9100.
+            Native ESC/POS printing, independent of the browser print dialog: a Bluetooth printer paired with
+            this phone, a network printer on port 9100, or USB on the main device.
           </p>
         </div>
         <Button variant="ghost" size="icon" onClick={() => refetch()} disabled={isFetching}>
@@ -58,9 +68,11 @@ export function PrinterDiagnosticsCard() {
               <>
                 <CheckCircle2 className="h-4 w-4 text-success" />
                 <span className="text-foreground">
-                  {data.connection === "NETWORK" && data.network
-                    ? `Printer reachable at ${data.network.host}:${data.network.port}`
-                    : "Printer detected"}
+                  {data.connection === "BLUETOOTH"
+                    ? "Bluetooth printing: each phone prints to the printer chosen below"
+                    : data.connection === "NETWORK" && data.network
+                      ? `Printer reachable at ${data.network.host}:${data.network.port}`
+                      : "Printer detected"}
                 </span>
               </>
             ) : (
@@ -90,8 +102,8 @@ export function PrinterDiagnosticsCard() {
         <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
           <div className="flex flex-col gap-1.5">
             <Label>Connection</Label>
-            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Printer connection">
-              {(["USB", "NETWORK"] as const).map((c) => (
+            <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Printer connection">
+              {(["BLUETOOTH", "NETWORK", "USB"] as const).map((c) => (
                 <Button
                   key={c}
                   type="button"
@@ -102,7 +114,7 @@ export function PrinterDiagnosticsCard() {
                   disabled={updateBranch.isPending}
                   onClick={() => save({ printerConnection: c })}
                 >
-                  {c === "USB" ? "USB (on this server)" : "Network (IP address)"}
+                  {CONNECTION_LABEL[c]}
                 </Button>
               ))}
             </div>
@@ -112,53 +124,59 @@ export function PrinterDiagnosticsCard() {
               </p>
             )}
           </div>
-          <div className="grid grid-cols-[1fr_6rem] gap-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="printer-host">Printer address</Label>
-              <Input
-                id="printer-host"
-                inputMode="url"
-                autoComplete="off"
-                placeholder="192.168.1.50"
-                value={host ?? branch.printerHost ?? ""}
-                onChange={(e) => setHost(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="printer-port">Port</Label>
-              <Input
-                id="printer-port"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                max={65535}
-                value={port ?? String(branch.printerPort)}
-                onChange={(e) => setPort(e.target.value)}
-              />
-            </div>
-          </div>
-          {(host !== null || port !== null) && (
-            <Button
-              type="button"
-              size="sm"
-              disabled={updateBranch.isPending}
-              onClick={() => {
-                const dto: Parameters<typeof updateBranch.mutate>[0] = {};
-                if (host !== null) dto.printerHost = host.trim() || null;
-                if (port !== null) dto.printerPort = Number(port);
-                updateBranch.mutate(dto, {
-                  onSuccess: () => {
-                    toast.success("Printer address saved");
-                    setHost(null);
-                    setPort(null);
-                    refetch();
-                  },
-                  onError: (err) => toast.error(err instanceof ApiError ? err.message : "Could not save the address"),
-                });
-              }}
-            >
-              Save address
-            </Button>
+          {branch.printerConnection === "BLUETOOTH" ? (
+            <BluetoothPrinterPicker />
+          ) : (
+            <>
+              <div className="grid grid-cols-[1fr_6rem] gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="printer-host">Printer address</Label>
+                  <Input
+                    id="printer-host"
+                    inputMode="url"
+                    autoComplete="off"
+                    placeholder="192.168.1.50"
+                    value={host ?? branch.printerHost ?? ""}
+                    onChange={(e) => setHost(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="printer-port">Port</Label>
+                  <Input
+                    id="printer-port"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={65535}
+                    value={port ?? String(branch.printerPort)}
+                    onChange={(e) => setPort(e.target.value)}
+                  />
+                </div>
+              </div>
+              {(host !== null || port !== null) && (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={updateBranch.isPending}
+                  onClick={() => {
+                    const dto: Parameters<typeof updateBranch.mutate>[0] = {};
+                    if (host !== null) dto.printerHost = host.trim() || null;
+                    if (port !== null) dto.printerPort = Number(port);
+                    updateBranch.mutate(dto, {
+                      onSuccess: () => {
+                        toast.success("Printer address saved");
+                        setHost(null);
+                        setPort(null);
+                        refetch();
+                      },
+                      onError: (err) => toast.error(err instanceof ApiError ? err.message : "Could not save the address"),
+                    });
+                  }}
+                >
+                  Save address
+                </Button>
+              )}
+            </>
           )}
           <div className="flex flex-col gap-1.5">
             <Label>Paper width</Label>

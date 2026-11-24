@@ -150,6 +150,10 @@ model Branch {
   printerHost         String?
   printerPort         Int     @default(9100)
 
+  // What the printed bill shows (Settings › Bill) — see billSettingsSchema in
+  // packages/types/src/bill-settings.ts. null = the standard bill.
+  billSettings Json?
+
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

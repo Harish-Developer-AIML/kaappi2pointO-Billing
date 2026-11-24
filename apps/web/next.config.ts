@@ -1,4 +1,19 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { NextConfig } from "next";
+
+// The app version (repo-root VERSION file, bumped with scripts/bump-version.sh),
+// shown in the sidebar and Settings.
+// APP_VERSION wins when set (the Android build compiles a copy of this app
+// elsewhere and passes it in); otherwise read the file two levels up.
+const APP_VERSION = (() => {
+  if (process.env.APP_VERSION?.trim()) return process.env.APP_VERSION.trim();
+  try {
+    return readFileSync(join(process.cwd(), "../../VERSION"), "utf8").trim();
+  } catch {
+    return "dev";
+  }
+})();
 
 // Browser only ever talks to ONE origin (this Next.js server) — API calls
 // are proxied server-side to the backend. Same reasoning as nodedr-pos:
@@ -15,6 +30,7 @@ const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:4001";
 const ANDROID = process.env.BUILD_TARGET === "android";
 
 const nextConfig: NextConfig = {
+  env: { NEXT_PUBLIC_APP_VERSION: APP_VERSION },
   output: ANDROID ? "export" : "standalone",
   // Exported pages are served as /path/index.html by the embedded backend.
   ...(ANDROID ? { trailingSlash: true, images: { unoptimized: true } } : {}),

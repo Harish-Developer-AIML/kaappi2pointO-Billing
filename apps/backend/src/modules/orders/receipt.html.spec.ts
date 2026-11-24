@@ -1,3 +1,4 @@
+import { DEFAULT_BILL_SETTINGS } from '@nodedr-restaurant/types';
 import { buildReceiptHtml } from './receipt.html';
 
 const base = {
@@ -67,5 +68,32 @@ describe('receipt HTML with VERI*FACTU', () => {
         order: { ...base.order, verifactu, isProvisional: true },
       }),
     ).not.toContain('QR tributario');
+  });
+});
+
+describe('receipt HTML bill settings', () => {
+  const dineIn = { ...base.order, type: 'DINE_IN', table: { label: 'T4' } };
+
+  it('puts the table number in its own cell on the right', () => {
+    const html = buildReceiptHtml({ ...base, order: dineIn });
+    expect(html).toContain(
+      '<td class="tbl"><span>Table</span><strong>T4</strong></td>',
+    );
+  });
+
+  it('a bill without tax lines and without the table', () => {
+    const html = buildReceiptHtml({
+      ...base,
+      order: dineIn,
+      bill: {
+        ...DEFAULT_BILL_SETTINGS,
+        showTaxBreakup: false,
+        showTable: false,
+        footerText: 'Nandri!',
+      },
+    });
+    expect(html).not.toContain('IVA');
+    expect(html).not.toContain('T4');
+    expect(html).toContain('Nandri!');
   });
 });

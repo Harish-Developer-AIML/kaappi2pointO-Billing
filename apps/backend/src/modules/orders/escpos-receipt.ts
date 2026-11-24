@@ -10,9 +10,11 @@
 // too; only which rows get printed differs.
 
 import {
+  DEFAULT_BILL_SETTINGS,
   resolveTaxIdLabel,
   resolveTaxLabel,
   TAX_REGIME_PRESETS,
+  type BillSettings,
   type TaxMode,
   type TaxRegime,
 } from '@nodedr-restaurant/types';
@@ -118,6 +120,7 @@ export function buildReceiptEscPosJob({
   profile = resolveProfile(),
   timeZone,
   locale,
+  bill = DEFAULT_BILL_SETTINGS,
 }: {
   restaurantName: string;
   branch: {
@@ -134,6 +137,8 @@ export function buildReceiptEscPosJob({
   order: EscposReceiptOrder;
   /** Also kick the cash drawer (for cash payments). */
   openDrawer?: boolean;
+  /** What the bill shows (Settings › Bill); same switches as the HTML bill. */
+  bill?: BillSettings;
 } & JobFormat): PrintResult {
   const w = new EscposWriter(profile);
   const sym = currencySymbol(w, currency);
@@ -144,18 +149,35 @@ export function buildReceiptEscPosJob({
     (branch.taxRegime === 'INDIA_GST' ? branch.gstNumber : null);
   const taxIdLabel = resolveTaxIdLabel(branch.taxRegime);
 
-  w.text(restaurantName, { align: 'center', bold: true, size: 'big' });
-  w.text(branch.name, { align: 'center' });
-  if (branch.address) w.text(branch.address, { align: 'center' });
-  if (branch.phone) w.text(`Ph: ${branch.phone}`, { align: 'center' });
-  if (taxIdValue) {
+  if (bill.showRestaurantName) {
+    w.text(restaurantName, { align: 'center', bold: true, size: 'big' });
+  }
+  if (bill.showBranchName) w.text(branch.name, { align: 'center' });
+  if (bill.showAddress && branch.address)
+    w.text(branch.address, { align: 'center' });
+  if (bill.showPhone && branch.phone)
+    w.text(`Ph: ${branch.phone}`, { align: 'center' });
+  if (bill.showTaxId && taxIdValue) {
     w.text(`${taxIdLabel}: ${taxIdValue}`, { align: 'center' });
   }
+  if (bill.headerNote) w.text(bill.headerNote, { align: 'center' });
   w.rule();
+  if (bill.billTitle) w.text(bill.billTitle, { align: 'center', bold: true });
   w.text(stamp(order.createdAt, { timeZone, locale }));
-  w.text(`Order: #${order.orderNumber} - ${order.type.replace('_', ' ')}`);
-  if (order.table) w.text(`Table: ${order.table.label}`);
-  if (order.customer) {
+  const orderText = `Order: #${order.orderNumber}${bill.showOrderType ? ` - ${order.type.replace('_', ' ')}` : ''}`;
+  if (bill.showTable && order.table) {
+    // Table number on the right: same line when it fits the paper width.
+    const tableText = `Table: ${order.table.label}`;
+    if (orderText.length + tableText.length + 1 <= profile.columns) {
+      w.row(orderText, tableText, { bold: true });
+    } else {
+      w.text(orderText);
+      w.text(tableText, { align: 'right', bold: true });
+    }
+  } else {
+    w.text(orderText);
+  }
+  if (bill.showCustomer && order.customer) {
     w.text(
       `Guest: ${order.customer.name}${order.customer.phone ? ` - ${order.customer.phone}` : ''}`,
     );
@@ -170,13 +192,17 @@ export function buildReceiptEscPosJob({
       money(item.lineTotal),
       { indent: 2 },
     );
-    if (Number(item.taxRateSnapshot) > 0) {
+    if (
+      bill.showTaxBreakup &&
+      bill.showItemTax &&
+      Number(item.taxRateSnapshot) > 0
+    ) {
       w.text(`  ${taxLabel} @ ${item.taxRateSnapshot}%`);
     }
   }
   w.rule();
 
-  if (branch.taxMode === 'EXCLUSIVE') {
+  if (branch.taxMode === 'EXCLUSIVE' && bill.showTaxBreakup) {
     w.row('Subtotal', money(order.subtotal - order.taxAmount));
     if (order.discountAmount > 0) {
       w.row(
@@ -193,7 +219,7 @@ export function buildReceiptEscPosJob({
         `-${money(order.discountAmount)}`,
       );
     }
-    if (order.taxAmount > 0) {
+    if (bill.showTaxBreakup && order.taxAmount > 0) {
       // Prices are tax-inclusive - this is a breakup of tax already inside
       // the total above, not an additional charge (see ARCHITECTURE.md).
       if (TAX_REGIME_PRESETS[branch.taxRegime].splitCgstSgst) {
@@ -247,13 +273,13 @@ export function buildReceiptEscPosJob({
     w.text(order.verifactu.short, { align: 'center', bold: true });
   }
 
-  w.rule();
-  w.text(
-    order.isProvisional
-      ? 'Bill only - not a receipt. Payment pending.'
-      : 'Thank you! Visit again.',
-    { align: 'center' },
-  );
+  if (order.isProvisional) {
+    w.rule();
+    w.text('Bill only - not a receipt. Payment pending.', { align: 'center' });
+  } else if (bill.footerText) {
+    w.rule();
+    w.text(bill.footerText, { align: 'center' });
+  }
   return {
     buffer: w.finish({ drawer: openDrawer }),
     unsupportedChars: [...w.unsupported],

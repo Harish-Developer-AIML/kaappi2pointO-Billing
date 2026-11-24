@@ -207,6 +207,11 @@ final class Supervisor {
         env.add("TZ=" + TimeZone.getDefault().getID());
         env.add("SSL_CERT_FILE=" + new File(usr, "etc/tls/cert.pem").getPath());
         env.add("HOME=" + files.getPath());
+        try {
+            env.add("APP_VERSION=" + context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionName);
+        } catch (Exception ignored) {
+            // version is informational only
+        }
         return env;
     }
 

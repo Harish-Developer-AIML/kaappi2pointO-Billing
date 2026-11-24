@@ -8,12 +8,14 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { RealtimeGateway } from '../../realtime/realtime.gateway';
 import { buildKotEscPosJob, resolveProfile } from './escpos-receipt';
 import { PrinterNotFoundError } from './escpos-usb';
-import { sendToBranchPrinter } from './printer-transport';
+import { printsOnClient, sendToBranchPrinter } from './printer-transport';
 
 export interface KotPrintResult {
   ok: true;
   printed: { id: string; ticketNumber: string; reprint: number }[];
   unsupportedChars: string[];
+  /** Bluetooth printer: the tickets' ESC/POS bytes (base64) for the app to print. */
+  escpos?: string;
 }
 
 // Prints kitchen tickets (KOTs) on the branch's thermal printer.
@@ -97,6 +99,7 @@ export class KotPrintService {
       printed: [],
       unsupportedChars: [],
     };
+    const clientJobs: Buffer[] = [];
     for (const kot of todo) {
       if (!reprint) {
         const claimed = await this.prisma.kot.updateMany({
@@ -146,25 +149,30 @@ export class KotPrintService {
         },
       });
 
-      try {
-        await sendToBranchPrinter(branch, job.buffer);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Printing failed';
-        await this.prisma.kot.update({
-          where: { id: kot.id },
-          data: {
-            lastPrintError: message.slice(0, 300),
-            // Release the first-print claim so a retry can print it.
-            ...(reprint ? {} : { printedCount: 0, printedAt: null }),
-          },
-        });
-        if (err instanceof PrinterNotFoundError) {
-          throw new ServiceUnavailableException(err.message);
+      if (printsOnClient(branch)) {
+        // Bluetooth: the Android app prints these (bytes returned below).
+        clientJobs.push(job.buffer);
+      } else
+        try {
+          await sendToBranchPrinter(branch, job.buffer);
+        } catch (err) {
+          const message =
+            err instanceof Error ? err.message : 'Printing failed';
+          await this.prisma.kot.update({
+            where: { id: kot.id },
+            data: {
+              lastPrintError: message.slice(0, 300),
+              // Release the first-print claim so a retry can print it.
+              ...(reprint ? {} : { printedCount: 0, printedAt: null }),
+            },
+          });
+          if (err instanceof PrinterNotFoundError) {
+            throw new ServiceUnavailableException(err.message);
+          }
+          throw new ServiceUnavailableException(
+            `Kitchen printer error: ${message}`,
+          );
         }
-        throw new ServiceUnavailableException(
-          `Kitchen printer error: ${message}`,
-        );
-      }
 
       const updated = await this.prisma.kot.update({
         where: { id: kot.id },
@@ -194,6 +202,9 @@ export class KotPrintService {
       });
     }
     result.unsupportedChars = [...new Set(result.unsupportedChars)];
+    if (clientJobs.length > 0) {
+      result.escpos = Buffer.concat(clientJobs).toString('base64');
+    }
     return result;
   }
 }

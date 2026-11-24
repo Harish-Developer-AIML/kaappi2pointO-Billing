@@ -28,9 +28,12 @@ export const restaurantSettingsSchema = z.object({
 });
 export type RestaurantSettingsDto = z.infer<typeof restaurantSettingsSchema>;
 
+import { billSettingsSchema } from "./bill-settings";
 import { TAX_MODES, TAX_REGIMES } from "./tax";
 
 export const branchSettingsSchema = z.object({
+  // What the printed bill shows (Settings › Bill).
+  billSettings: billSettingsSchema.optional(),
   name: z.string().min(1).optional(),
   address: z.string().optional(),
   phone: z.string().optional(),
@@ -54,7 +57,9 @@ export const branchSettingsSchema = z.object({
   printerColumns: z.number().int().min(20).max(64).nullable().optional(),
   // How the server reaches the thermal printer: USB attached to the server,
   // or a network printer (raw ESC/POS over TCP, normally port 9100).
-  printerConnection: z.enum(["USB", "NETWORK"]).optional(),
+  // BLUETOOTH: a printer paired with the Android device running the app; the
+  // server returns the ESC/POS bytes and the app sends them (PrintBridge).
+  printerConnection: z.enum(["USB", "NETWORK", "BLUETOOTH"]).optional(),
   printerHost: z
     .string()
     .trim()
