@@ -3,6 +3,16 @@
 Kaappi Biller versions. `major.minor.patch`: patch = bug fixes, minor = new
 features, major = big or breaking changes. Bump with `scripts/bump-version.sh`.
 
+## 1.4.0 — 2026-11-26
+
+- Bill logos: size slider (10–30 mm) and position (top / middle / bottom).
+- Totals: one TOTAL line; subtotal only when it differs from the total;
+  switches for subtotal and payment lines (Settings › Bill › Totals).
+- Thermal printers: "Tamil & Indian languages + ₹" character set prints the
+  bill as a picture drawn on the device (Tamil, Hindi, ₹ … print correctly).
+- Point of Sale with the phone sideways: menu and cart side by side like on a
+  computer; the table list scrolls and shows every table.
+
 ## 1.3.0 — 2026-11-24
 
 - Bill logos: a left and a right logo at the top of the bill (screen/PDF and

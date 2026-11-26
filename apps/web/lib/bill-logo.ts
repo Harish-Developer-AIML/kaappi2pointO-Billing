@@ -6,8 +6,8 @@ import { BILL_LOGO_MAX_DOTS, type BillLogo } from "@nodedr-restaurant/types";
 
 /** Longest side of the screen/PDF image (shown at 16 mm on the bill). */
 const SCREEN_MAX_PX = 192;
-/** Printed logo height: 120 dots = 15 mm on a 203 dpi thermal printer. */
-const PRINT_MAX_ROWS = 120;
+/** Stored printer picture height: 160 dots = 20 mm (the printer scales it to the chosen size). */
+const PRINT_MAX_ROWS = 160;
 
 function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -55,7 +55,7 @@ export async function makeBillLogo(file: File): Promise<BillLogo> {
   screen.ctx.drawImage(img, 0, 0, screen.c.width, screen.c.height);
   const image = screen.c.toDataURL("image/png");
 
-  // Printer version: on white, fits 184 x 120 dots, width a multiple of 8.
+  // Printer version: on white, fits 184 x 160 dots, width a multiple of 8.
   const p = Math.min(BILL_LOGO_MAX_DOTS / w0, PRINT_MAX_ROWS / h0);
   const pw = Math.max(1, Math.round(w0 * p));
   const height = Math.max(1, Math.round(h0 * p));

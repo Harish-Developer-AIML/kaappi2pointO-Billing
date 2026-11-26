@@ -40,7 +40,7 @@ export interface BranchSettings {
   kioskDineInEnabled: boolean;
   kioskTakeawayEnabled: boolean;
   printerPaperWidthMm: 58 | 80;
-  printerCodepage: "CP437" | "CP850" | "CP858" | "CP1252";
+  printerCodepage: "CP437" | "CP850" | "CP858" | "CP1252" | "PICTURE";
   printerColumns: number | null;
   printerConnection: "USB" | "NETWORK" | "BLUETOOTH";
   printerHost: string | null;

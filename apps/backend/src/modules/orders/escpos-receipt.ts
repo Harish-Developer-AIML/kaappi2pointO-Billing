@@ -23,11 +23,16 @@ import {
   CMD,
   EscposWriter,
   resolveProfile,
+  type PictureJob,
   type PrinterProfile,
   type RasterImage,
 } from './escpos/encoder';
 
-export { resolveProfile, type PrinterProfile } from './escpos/encoder';
+export {
+  resolveProfile,
+  type PictureJob,
+  type PrinterProfile,
+} from './escpos/encoder';
 
 /** A bill logo's printer picture (validated when saved; see billLogoSchema). */
 function rasterOf(logo: BillLogo | null): RasterImage | null {
@@ -40,7 +45,8 @@ function rasterOf(logo: BillLogo | null): RasterImage | null {
 // Preferred symbol first; used only when the selected code page can print it,
 // otherwise the ISO-style code after it (never a '?').
 const CURRENCY_SYMBOLS: Record<string, [string, string]> = {
-  INR: ['Rs.', 'Rs.'],
+  // No printer code page has ₹: text jobs print Rs.; picture jobs draw ₹.
+  INR: ['\u20b9', 'Rs.'],
   USD: ['$', 'USD '],
   EUR: ['\u20ac', 'EUR '],
   GBP: ['\u00a3', 'GBP '],
@@ -51,6 +57,8 @@ function currencySymbol(w: EscposWriter, currency: string): string {
     `${currency} `,
     `${currency} `,
   ];
+  // A picture job is drawn with the device's fonts: every symbol prints.
+  if (w.profile.picture) return preferred;
   return [...preferred].every((c) => w.has(c)) ? preferred : fallback;
 }
 
@@ -58,6 +66,8 @@ export interface PrintResult {
   buffer: Buffer;
   /** Characters printed as '?' because the code page cannot represent them. */
   unsupportedChars: string[];
+  /** Picture printing (Tamil etc.): the lines for the app to draw and print. */
+  picture?: PictureJob;
 }
 
 export interface ReceiptVerifactu {
@@ -160,7 +170,11 @@ export function buildReceiptEscPosJob({
   const taxIdLabel = resolveTaxIdLabel(branch.taxRegime);
 
   if (bill.logoLeft || bill.logoRight) {
-    w.logos(rasterOf(bill.logoLeft), rasterOf(bill.logoRight));
+    // 8 dots per mm on a 203 dpi head; at most 160 dots (20 mm) tall.
+    w.logos(rasterOf(bill.logoLeft), rasterOf(bill.logoRight), {
+      rows: Math.min(160, bill.logoSizeMm * 8),
+      align: bill.logoAlign,
+    });
   }
   if (bill.showRestaurantName) {
     w.text(restaurantName, { align: 'center', bold: true, size: 'big' });
@@ -215,19 +229,23 @@ export function buildReceiptEscPosJob({
   }
   w.rule();
 
+  // Lines between the items and TOTAL, collected first so the subtotal can be
+  // left out when it would only repeat the total (see BillSettings.showSubtotal).
+  const totals: [string, string][] = [];
+  const t = { row: (l: string, v: string) => totals.push([l, v]) };
   if (branch.taxMode === 'EXCLUSIVE' && bill.showTaxBreakup) {
-    w.row('Subtotal', money(order.subtotal - order.taxAmount));
+    t.row('Subtotal', money(order.subtotal - order.taxAmount));
     if (order.discountAmount > 0) {
-      w.row(
+      t.row(
         discountLabel(order.discountPercent),
         `-${money(order.discountAmount)}`,
       );
     }
-    if (order.taxAmount > 0) w.row(taxLabel, money(order.taxAmount));
+    if (order.taxAmount > 0) t.row(taxLabel, money(order.taxAmount));
   } else {
-    w.row('Subtotal', money(order.subtotal));
+    t.row('Subtotal', money(order.subtotal));
     if (order.discountAmount > 0) {
-      w.row(
+      t.row(
         discountLabel(order.discountPercent),
         `-${money(order.discountAmount)}`,
       );
@@ -238,27 +256,34 @@ export function buildReceiptEscPosJob({
       if (TAX_REGIME_PRESETS[branch.taxRegime].splitCgstSgst) {
         const half =
           Math.round((order.taxAmount / 2 + Number.EPSILON) * 100) / 100;
-        w.row('CGST (incl.)', money(half));
-        w.row('SGST (incl.)', money(order.taxAmount - half));
+        t.row('CGST (incl.)', money(half));
+        t.row('SGST (incl.)', money(order.taxAmount - half));
       } else {
-        w.row(`${taxLabel} (incl.)`, money(order.taxAmount));
+        t.row(`${taxLabel} (incl.)`, money(order.taxAmount));
       }
     }
   }
   if (order.loyaltyDiscountAmount > 0) {
-    w.row(
+    t.row(
       `Loyalty (${order.loyaltyPointsRedeemed} pts)`,
       `-${money(order.loyaltyDiscountAmount)}`,
     );
   }
-  if (order.tipAmount > 0) w.row('Tip', money(order.tipAmount));
-  w.rule();
+  if (order.tipAmount > 0) t.row('Tip', money(order.tipAmount));
+  if (
+    totals[0]?.[0] === 'Subtotal' &&
+    (!bill.showSubtotal || totals[0][1] === money(order.totalAmount))
+  ) {
+    totals.shift();
+  }
+  for (const [label, value] of totals) w.row(label, value);
+  if (totals.length > 0) w.rule();
   w.row(order.isProvisional ? 'TOTAL DUE' : 'TOTAL', money(order.totalAmount), {
     bold: true,
     size: 'tall',
   });
 
-  if (order.payments.length > 0) {
+  if (bill.showPayments && order.payments.length > 0) {
     w.rule();
     for (const p of order.payments) {
       w.row(`Paid (${p.method})`, money(p.amount));
@@ -293,9 +318,11 @@ export function buildReceiptEscPosJob({
     w.rule();
     w.text(bill.footerText, { align: 'center' });
   }
+  const buffer = w.finish({ drawer: openDrawer });
   return {
-    buffer: w.finish({ drawer: openDrawer }),
+    buffer,
     unsupportedChars: [...w.unsupported],
+    picture: w.pictureJob(),
   };
 }
 
@@ -377,9 +404,11 @@ export function buildKotEscPosJob({
   }
   w.rule('=');
   w.text(`${order.items.length} line(s), ${units} item(s)`);
+  const buffer = w.finish();
   return {
-    buffer: w.finish(),
+    buffer,
     unsupportedChars: [...w.unsupported],
+    picture: w.pictureJob(),
   };
 }
 
@@ -409,15 +438,26 @@ export function buildOpenDrawer(): Buffer {
 export function buildTestSlip(
   profile: PrinterProfile = resolveProfile(),
 ): Buffer {
+  return buildTestSlipJob(profile).buffer;
+}
+
+export function buildTestSlipJob(
+  profile: PrinterProfile = resolveProfile(),
+): PrintResult {
   const w = new EscposWriter(profile);
   w.text('Kaappi Biller', { align: 'center', bold: true, size: 'big' });
   w.text('Printer test OK', { align: 'center' });
   w.rule();
-  const ruler = '1234567890'.repeat(7).slice(0, profile.columns);
-  w.text(ruler);
+  // The ruler checks the column count; a picture is drawn to the paper width.
+  if (!profile.picture)
+    w.text('1234567890'.repeat(7).slice(0, profile.columns));
   w.text(
-    `${profile.paperWidthMm} mm - ${profile.columns} columns - ${profile.codepage}`,
+    `${profile.paperWidthMm} mm - ${profile.columns} columns - ${profile.picture ? 'picture (Tamil / Indian languages)' : profile.codepage}`,
   );
+  if (profile.picture) {
+    w.text('தமிழ்: வணக்கம்! ₹250 - ஊர் Crumbs');
+    w.text('हिन्दी: नमस्ते  ·  മലയാളം  ·  తెలుగు  ·  ಕನ್ನಡ');
+  }
   w.text(
     'Accents: \u00e1\u00e9\u00ed\u00f3\u00fa \u00f1 \u00fc \u00bf? \u00a1! \u20ac \u00a3',
   );
@@ -425,7 +465,12 @@ export function buildTestSlip(
   w.text('Tall text', { size: 'tall' });
   w.text('Wide text', { size: 'wide' });
   w.text(stamp(new Date(), {}));
-  return w.finish();
+  const buffer = w.finish();
+  return {
+    buffer,
+    unsupportedChars: [...w.unsupported],
+    picture: w.pictureJob(),
+  };
 }
 
 /** A sample kitchen ticket, to prove the kitchen printer end to end. */

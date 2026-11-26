@@ -19,6 +19,39 @@ export interface PrinterProfile {
   /** Printable characters per line in the normal (Font A) size. */
   columns: number;
   codepage: CodepageName;
+  /**
+   * "Picture" printing (code page setting PICTURE): for Tamil and other
+   * scripts no printer code page has. The job's lines are also recorded as a
+   * PictureJob; the app draws them with the device's fonts and prints the
+   * picture (apps/web/lib/print-picture.ts).
+   */
+  picture?: boolean;
+}
+
+/** Settings value of the "Tamil / Indian languages (picture)" character set. */
+export const PICTURE_CODEPAGE = 'PICTURE';
+
+/** One printed line of a picture job, in the original text (any script). */
+export type PictureItem =
+  | { k: 'text'; text: string; align: Align; bold: boolean; size: TextSize }
+  | {
+      k: 'row';
+      left: string;
+      right: string;
+      bold: boolean;
+      size: TextSize;
+      indent: number;
+    }
+  | { k: 'rule'; char: string }
+  | { k: 'blank' }
+  | { k: 'image'; width: number; height: number; data: string }
+  | { k: 'qr'; data: string };
+
+export interface PictureJob {
+  paperWidthMm: PaperWidthMm;
+  items: PictureItem[];
+  cut: boolean;
+  drawer: boolean;
 }
 
 // 58 mm heads print 384 dots, 80 mm heads 576 dots; Font A is 12 dots wide.
@@ -30,6 +63,38 @@ export interface RasterImage {
   width: number;
   height: number;
   data: Buffer;
+}
+
+/**
+ * Resize a 1-bit picture to `rows` tall (nearest neighbour, aspect kept),
+ * at most `maxWidth` dots wide; the width is rounded up to whole bytes.
+ */
+export function scaleRaster(
+  img: RasterImage,
+  rows: number,
+  maxWidth: number,
+): RasterImage {
+  const f = Math.min(rows / img.height, maxWidth / img.width);
+  const height = Math.max(1, Math.round(img.height * f));
+  const drawn = Math.max(1, Math.min(maxWidth, Math.round(img.width * f)));
+  const width = Math.min(
+    Math.max(8, Math.ceil(drawn / 8) * 8),
+    Math.max(8, maxWidth),
+  );
+  if (height === img.height && width === img.width) return img;
+  const srcBytes = img.width / 8;
+  const outBytes = width / 8;
+  const data = Buffer.alloc(outBytes * height);
+  for (let y = 0; y < height; y++) {
+    const sy = Math.min(img.height - 1, Math.floor(y / f));
+    for (let x = 0; x < drawn; x++) {
+      const sx = Math.min(img.width - 1, Math.floor(x / f));
+      if (img.data[sy * srcBytes + (sx >> 3)] & (0x80 >> (sx & 7))) {
+        data[y * outBytes + (x >> 3)] |= 0x80 >> (x & 7);
+      }
+    }
+  }
+  return { width, height, data };
 }
 export const CODEPAGE_NAMES = Object.keys(CODEPAGES) as CodepageName[];
 
@@ -46,10 +111,13 @@ export function resolveProfile(
     Number.isFinite(requested) && requested >= 20 && requested <= 64
       ? Math.floor(requested)
       : DEFAULT_COLUMNS[paperWidthMm];
+  const picture = opts.codepage === PICTURE_CODEPAGE;
   const codepage = CODEPAGE_NAMES.includes(opts.codepage as CodepageName)
     ? (opts.codepage as CodepageName)
     : 'CP858';
-  return { paperWidthMm, columns, codepage };
+  return picture
+    ? { paperWidthMm, columns, codepage, picture }
+    : { paperWidthMm, columns, codepage };
 }
 
 const ESC = 0x1b;
@@ -96,6 +164,12 @@ export class EscposWriter {
   readonly unsupported = new Set<string>();
   private readonly chunks: Buffer[] = [];
   private readonly reverse = new Map<string, number>();
+  /** Picture printing: every line as data (see PrinterProfile.picture). */
+  private readonly items: PictureItem[] = [];
+  private ending: { cut: boolean; drawer: boolean } = {
+    cut: true,
+    drawer: false,
+  };
 
   constructor(profile: PrinterProfile) {
     this.profile = profile;
@@ -137,7 +211,8 @@ export class EscposWriter {
           // control / format characters: nothing to print
         } else {
           out += '?';
-          this.unsupported.add(ch);
+          // A picture job prints the original text, so nothing is lost.
+          if (!this.profile.picture) this.unsupported.add(ch);
         }
       }
     }
@@ -217,6 +292,13 @@ export class EscposWriter {
     text: string,
     opts: { align?: Align; bold?: boolean; size?: TextSize } = {},
   ): this {
+    this.items.push({
+      k: 'text',
+      text: String(text ?? ''),
+      align: opts.align ?? 'left',
+      bold: !!opts.bold,
+      size: opts.size ?? 'normal',
+    });
     for (const l of this.wrap(text, this.columnsFor(opts.size))) {
       this.emit(l, opts);
     }
@@ -232,6 +314,14 @@ export class EscposWriter {
     value: string,
     opts: { bold?: boolean; size?: TextSize; indent?: number } = {},
   ): this {
+    this.items.push({
+      k: 'row',
+      left: String(label ?? ''),
+      right: String(value ?? ''),
+      bold: !!opts.bold,
+      size: opts.size ?? 'normal',
+      indent: opts.indent ?? 0,
+    });
     const cols = this.columnsFor(opts.size);
     const v = this.prepare(value);
     const indent = ' '.repeat(opts.indent ?? 0);
@@ -254,6 +344,7 @@ export class EscposWriter {
    * VERI*FACTU-length URL at roughly 33 mm on 203 dpi paper, inside AEAT's 30-40 mm range.
    */
   qr(data: string, moduleSize = 6): this {
+    this.items.push({ k: 'qr', data });
     const bytes = Buffer.from(data, 'utf8');
     const len = bytes.length + 3;
     this.chunks.push(
@@ -277,16 +368,31 @@ export class EscposWriter {
    * picture prepared by Settings › Bill: rows of width/8 bytes, first bit =
    * leftmost dot, 1 = black (width a multiple of 8, so no bit shifting).
    */
-  logos(left: RasterImage | null, right: RasterImage | null): this {
+  logos(
+    leftImage: RasterImage | null,
+    rightImage: RasterImage | null,
+    opts: { rows?: number; align?: 'top' | 'middle' | 'bottom' } = {},
+  ): this {
     const dots = PAPER_DOTS[this.profile.paperWidthMm];
     const rowBytes = dots / 8;
+    // Each logo fits half the paper (two side by side), in whole bytes.
+    const maxWidth = Math.floor(dots / 2 / 8) * 8 - 8;
+    const fit = (img: RasterImage | null) =>
+      img ? scaleRaster(img, opts.rows ?? img.height, maxWidth) : null;
+    const left = fit(leftImage);
+    const right = fit(rightImage);
     const images = [left, right].filter((i): i is RasterImage => !!i);
     if (images.length === 0) return this;
     const height = Math.max(...images.map((i) => i.height));
     const band = Buffer.alloc(rowBytes * height);
     const place = (img: RasterImage, atByte: number) => {
       const imgBytes = Math.min(img.width / 8, rowBytes - atByte);
-      const top = Math.floor((height - img.height) / 2);
+      const top =
+        opts.align === 'top'
+          ? 0
+          : opts.align === 'bottom'
+            ? height - img.height
+            : Math.floor((height - img.height) / 2);
       for (let y = 0; y < img.height; y++) {
         img.data.copy(
           band,
@@ -298,6 +404,12 @@ export class EscposWriter {
     };
     if (left) place(left, 0);
     if (right) place(right, Math.max(0, rowBytes - right.width / 8));
+    this.items.push({
+      k: 'image',
+      width: dots,
+      height,
+      data: band.toString('base64'),
+    });
     this.chunks.push(
       CMD.alignLeft,
       Buffer.from([
@@ -317,12 +429,16 @@ export class EscposWriter {
   }
 
   rule(char = '-'): this {
+    this.items.push({ k: 'rule', char });
     this.emit(char.repeat(this.profile.columns), {});
     return this;
   }
 
   blank(n = 1): this {
-    for (let i = 0; i < n; i++) this.emit('', {});
+    for (let i = 0; i < n; i++) {
+      this.items.push({ k: 'blank' });
+      this.emit('', {});
+    }
     return this;
   }
 
@@ -333,6 +449,7 @@ export class EscposWriter {
    * line says so on the paper itself.
    */
   finish(opts: { cut?: boolean; drawer?: boolean } = {}): Buffer {
+    this.ending = { cut: opts.cut !== false, drawer: !!opts.drawer };
     if (this.unsupported.size > 0) {
       this.rule();
       this.text('(!) Some characters could not be printed and show as "?".');
@@ -348,5 +465,15 @@ export class EscposWriter {
     if (opts.cut !== false) this.chunks.push(CMD.cut);
     if (opts.drawer) this.chunks.push(CMD.openDrawer);
     return Buffer.concat(this.chunks);
+  }
+
+  /** The job as lines to draw, when printing as a picture (call after finish()). */
+  pictureJob(): PictureJob | undefined {
+    if (!this.profile.picture) return undefined;
+    return {
+      paperWidthMm: this.profile.paperWidthMm,
+      items: this.items,
+      ...this.ending,
+    };
   }
 }

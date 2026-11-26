@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  BadRequestException,
   ForbiddenException,
   Get,
   Param,
@@ -42,10 +43,11 @@ import {
   buildKotTestSlip,
   buildOpenDrawer,
   buildReceiptEscPosJob,
-  buildTestSlip,
+  buildTestSlipJob,
   resolveProfile,
   type EscposKotOrder,
   type EscposReceiptOrder,
+  type PictureJob,
   type PrintResult,
 } from './escpos-receipt';
 import { probeNetworkPrinter } from './escpos-network';
@@ -574,11 +576,40 @@ export class OrdersController {
       profile = await this.ordersService.printerProfile(branchId);
       target = await this.ordersService.printerTarget(branchId);
     }
-    const buffer =
-      kind === 'kot'
-        ? buildKotTestSlip(profile).buffer
-        : buildTestSlip(profile);
-    return { ok: true, profile, ...(await this.deliver(target, buffer)) };
+    const job =
+      kind === 'kot' ? buildKotTestSlip(profile) : buildTestSlipJob(profile);
+    return {
+      ok: true,
+      profile,
+      ...(await this.deliver(target, job.buffer, job.picture)),
+    };
+  }
+
+  /**
+   * Picture printing (Tamil etc.) for a USB or network printer: the app drew
+   * the job (apps/web/lib/print-picture.ts) and sends the finished ESC/POS
+   * bytes here to go to the branch printer.
+   */
+  @Auth('bills.print')
+  @Post('print/raw')
+  async printRaw(
+    @CurrentUser() user: SessionUser,
+    @Query('branchId') branchId: string,
+    @Body() body: { escpos?: unknown },
+  ) {
+    await this.branchAccess.assertAccess(user.restaurantId, branchId);
+    const b64 = typeof body?.escpos === 'string' ? body.escpos : '';
+    if (!b64 || b64.length > 1_500_000 || !/^[A-Za-z0-9+/]+=*$/.test(b64)) {
+      throw new BadRequestException('Nothing to print');
+    }
+    const target = await this.ordersService.printerTarget(branchId);
+    if (printsOnClient(target)) {
+      throw new BadRequestException(
+        'This branch prints over Bluetooth from the app, not from the server.',
+      );
+    }
+    await this.deliver(target, Buffer.from(b64, 'base64'));
+    return { ok: true };
   }
 
   // Opens the cash drawer wired to the thermal printer ("No sale" / test).
@@ -695,7 +726,20 @@ export class OrdersController {
   private async deliver(
     target: BranchPrinterTarget,
     buffer: Buffer,
-  ): Promise<{ escpos?: string }> {
+    picture?: PictureJob,
+  ): Promise<{
+    escpos?: string;
+    pictures?: PictureJob[];
+    pictureVia?: 'bluetooth' | 'server';
+  }> {
+    // Picture printing: the app draws the job and prints it (Bluetooth) or
+    // sends the drawn bytes back to POST print/raw (USB / network).
+    if (picture) {
+      return {
+        pictures: [picture],
+        pictureVia: printsOnClient(target) ? 'bluetooth' : 'server',
+      };
+    }
     if (printsOnClient(target)) return { escpos: buffer.toString('base64') };
     try {
       await sendToBranchPrinter(target, buffer);
@@ -709,7 +753,7 @@ export class OrdersController {
   }
 
   private async sendJob(job: PrintResult, target: BranchPrinterTarget) {
-    const delivered = await this.deliver(target, job.buffer);
+    const delivered = await this.deliver(target, job.buffer, job.picture);
     return {
       ok: true,
       ...delivered,

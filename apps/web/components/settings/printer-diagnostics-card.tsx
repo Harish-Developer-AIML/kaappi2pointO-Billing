@@ -211,6 +211,7 @@ export function PrinterDiagnosticsCard() {
                 <option value="CP850">CP850 — Western Europe</option>
                 <option value="CP437">CP437 — US / legacy</option>
                 <option value="CP1252">WPC1252 — Windows Latin</option>
+                <option value="PICTURE">Tamil &amp; Indian languages + ₹ (prints as a picture)</option>
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
@@ -238,8 +239,9 @@ export function PrinterDiagnosticsCard() {
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            Text is sent as native printer text, not an image. Print a &ldquo;Test bill&rdquo; after changing these:
-            the ruler line should fill one line exactly and the accents line should read correctly.
+            {branch.printerCodepage === "PICTURE"
+              ? "Bills are drawn on this device with its own fonts and printed as a picture, so Tamil and other Indian languages and ₹ print correctly. Print a “Test bill” to check: the Tamil line should read correctly."
+              : "Text is sent as native printer text, not an image. Print a “Test bill” after changing these: the ruler line should fill one line exactly and the accents line should read correctly. For Tamil or ₹, choose “Tamil & Indian languages”."}
           </p>
         </div>
       )}

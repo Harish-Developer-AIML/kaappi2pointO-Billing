@@ -29,6 +29,7 @@ import { useFloors, type RestaurantTable } from "@/hooks/use-tables";
 import { ApiError } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 import { NO_TABLE, POS_RESET_EVENT } from "@/lib/pos-events";
+import { useLandscapePhone } from "@/hooks/use-landscape-phone";
 import { cn } from "@/lib/utils";
 
 export default function PosPage() {
@@ -273,11 +274,19 @@ function PosPageInner() {
   // it, same as arriving here from the Tables page's own "New order" link
   // (?tableId=... pre-fills this and never shows the picker).
   const showTablePicker = orderType === "DINE_IN" && !tableId && !activeOrder;
+  // Phone turned sideways: menu and cart side by side, like on a computer.
+  const sideBySide = useLandscapePhone();
 
   return (
-    <div className="flex h-[calc(100dvh-10rem)] flex-col gap-4 lg:h-[calc(100dvh-8rem)]">
+    <div
+      className={cn(
+        "flex flex-col gap-4 lg:h-[calc(100dvh-8rem)]",
+        // Sideways the screen is short: at least 22rem tall, the page scrolls the rest.
+        sideBySide ? "h-[max(22rem,calc(100dvh-8.5rem))] gap-3" : "h-[calc(100dvh-10rem)]",
+      )}
+    >
       <StatusNote note={note} onClear={clearNote} />
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className={cn("flex flex-wrap items-center justify-between gap-2", sideBySide && "hidden")}>
         <div className="min-w-0 flex-1">
           <KitchenProgressWidget branchId={branchId} />
         </div>
@@ -296,7 +305,7 @@ function PosPageInner() {
       <BranchNotice />
 
       {showTablePicker ? (
-        <Card className="flex-1 overflow-hidden p-5">
+        <Card className={cn("min-h-0 flex-1 overflow-hidden", sideBySide ? "p-3" : "p-5")}>
           <PosTablePicker
             floors={floors ?? []}
             onSelect={handleTablePick}
@@ -308,15 +317,22 @@ function PosPageInner() {
           />
         </Card>
       ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-hidden lg:grid-cols-[1fr_360px]">
-          <Card className="min-h-0 overflow-hidden p-3 sm:p-5">
+        <div
+          className={cn(
+            "grid min-h-0 flex-1 gap-6 overflow-hidden lg:grid-cols-[1fr_360px]",
+            sideBySide ? "grid-cols-[minmax(0,1fr)_minmax(0,20rem)] gap-3" : "grid-cols-1",
+          )}
+        >
+          <Card className={cn("min-h-0 overflow-hidden", sideBySide ? "p-3" : "p-3 sm:p-5")}>
             <ProductGrid branchId={branchId} onSelect={handleSelect} />
           </Card>
 
           <Card
             className={cn(
               "min-h-0 overflow-hidden p-5",
-              cartOpen
+              sideBySide
+                ? "p-3"
+                : cartOpen
                 ? // Phones: full screen down to the bottom bar, which stays usable
                   // (Point of Sale there starts the next bill). Same z as the bar,
                   // which comes later in the page, so its raised button is on top;
@@ -328,7 +344,10 @@ function PosPageInner() {
             <button
               type="button"
               onClick={() => setCartOpen(false)}
-              className="mb-3 -ml-1 flex items-center gap-1 text-sm font-medium text-muted-foreground lg:hidden"
+              className={cn(
+                "mb-3 -ml-1 flex items-center gap-1 text-sm font-medium text-muted-foreground lg:hidden",
+                sideBySide && "hidden",
+              )}
             >
               <ChevronLeft className="h-4 w-4" />
               Back to menu
@@ -376,7 +395,7 @@ function PosPageInner() {
         </div>
       )}
 
-      {!showTablePicker && !cartOpen && (lines.length > 0 || activeOrder || existingOrder) && (
+      {!showTablePicker && !cartOpen && !sideBySide && (lines.length > 0 || activeOrder || existingOrder) && (
         <button
           type="button"
           onClick={() => setCartOpen(true)}

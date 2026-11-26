@@ -53,7 +53,7 @@ export const branchSettingsSchema = z.object({
   kioskTakeawayEnabled: z.boolean().optional(),
   // Thermal printer (direct ESC/POS): paper, code page and column override.
   printerPaperWidthMm: z.union([z.literal(58), z.literal(80)]).optional(),
-  printerCodepage: z.enum(["CP437", "CP850", "CP858", "CP1252"]).optional(),
+  printerCodepage: z.enum(["CP437", "CP850", "CP858", "CP1252", "PICTURE"]).optional(),
   printerColumns: z.number().int().min(20).max(64).nullable().optional(),
   // How the server reaches the thermal printer: USB attached to the server,
   // or a network printer (raw ESC/POS over TCP, normally port 9100).

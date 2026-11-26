@@ -188,8 +188,16 @@ export function buildReceiptHtml({
   if (order.tipAmount > 0) {
     totalRows.push(['Tip', money(order.tipAmount)]);
   }
+  // One total: the subtotal only when switched on and its amount differs from
+  // the total (discount, added tax, tip); otherwise it only repeats it.
+  if (
+    totalRows[0]?.[0] === 'Subtotal' &&
+    (!bill.showSubtotal || totalRows[0][1] === money(order.totalAmount))
+  ) {
+    totalRows.shift();
+  }
 
-  const paymentRows = order.payments.flatMap((p) => {
+  const paymentRows = (bill.showPayments ? order.payments : []).flatMap((p) => {
     const rows = [
       `<tr><td>Paid (${esc(p.method)})</td><td class="num">${money(p.amount)}</td></tr>`,
     ];
@@ -228,7 +236,7 @@ export function buildReceiptHtml({
     l ? `<img class="logo" src="${l.image}" alt="">` : '';
   const header =
     bill.logoLeft || bill.logoRight
-      ? `<div class="head"><div class="side">${logo(bill.logoLeft)}</div><div class="head-text">${headerText}</div><div class="side">${logo(bill.logoRight)}</div></div>`
+      ? `<style>.head{align-items:${bill.logoAlign === 'top' ? 'flex-start' : bill.logoAlign === 'bottom' ? 'flex-end' : 'center'}}.head .side{width:${bill.logoSizeMm}mm}.head .logo{max-width:${bill.logoSizeMm}mm;max-height:${bill.logoSizeMm}mm}</style><div class="head"><div class="side">${logo(bill.logoLeft)}</div><div class="head-text">${headerText}</div><div class="side">${logo(bill.logoRight)}</div></div>`
       : headerText;
 
   return `<!doctype html>

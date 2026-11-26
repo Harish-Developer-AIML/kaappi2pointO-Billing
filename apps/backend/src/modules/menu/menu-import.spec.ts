@@ -53,10 +53,10 @@ function fakeDb(cats: Cat[] = [], items: Item[] = []) {
           ),
         ),
       create: ({ data }: { data: Omit<Item, 'id'> }) => {
-        const i = {
-          description: null,
-          halfPrice: null,
+        const i: Item = {
           ...data,
+          description: data.description ?? null,
+          halfPrice: data.halfPrice ?? null,
           id: `i${++seq}`,
         };
         items.push(i);

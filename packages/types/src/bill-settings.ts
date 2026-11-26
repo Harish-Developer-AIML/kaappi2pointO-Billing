@@ -48,6 +48,10 @@ export const billSettingsSchema = z.object({
   /** Logos at the top left and top right of the bill (either, both or none). */
   logoLeft: billLogoSchema.nullable().default(null),
   logoRight: billLogoSchema.nullable().default(null),
+  /** Printed logo height in mm (thermal: 8 dots per mm, at most 160 dots). */
+  logoSizeMm: z.number().int().min(10).max(30).default(16),
+  /** Logos beside the shop details: level with the top, middle or bottom of the text. */
+  logoAlign: z.enum(["top", "middle", "bottom"]).default("middle"),
   showRestaurantName: z.boolean().default(true),
   showBranchName: z.boolean().default(true),
   showAddress: z.boolean().default(true),
@@ -67,6 +71,11 @@ export const billSettingsSchema = z.object({
   showTaxBreakup: z.boolean().default(true),
   /** "GST @ 5%" under each item (only when showTaxBreakup). */
   showItemTax: z.boolean().default(true),
+  // Totals. One TOTAL line is always printed. The subtotal is printed only
+  // when it differs from the total (a discount, tax or tip line between them).
+  showSubtotal: z.boolean().default(true),
+  /** "Paid (CASH) ₹250", received and change. */
+  showPayments: z.boolean().default(true),
   // Footer
   footerText: z.string().trim().max(160).default("Thank you! Visit again."),
 });

@@ -102,7 +102,7 @@ export function PosTablePicker({
 
       {/* p-2 (cancelled by -m-2) leaves room inside the scroll box for a tile's
           hover:scale and shadow, which the box would otherwise clip. */}
-      <div className="-m-2 grid flex-1 auto-rows-min grid-cols-3 gap-3 overflow-y-auto overscroll-contain p-2 pb-3 sm:grid-cols-4 lg:grid-cols-5 lg:gap-4 xl:grid-cols-6 2xl:grid-cols-7">
+      <div className="-m-2 grid min-h-0 flex-1 auto-rows-min grid-cols-3 gap-3 overflow-y-auto overscroll-contain p-2 pb-3 sm:grid-cols-4 lg:grid-cols-5 lg:gap-4 xl:grid-cols-6 2xl:grid-cols-7">
         {activeFloor?.tables.map((table) => {
           const clickable = table.status !== "CLEANING" && table.status !== "OUT_OF_SERVICE";
           return (

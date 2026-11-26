@@ -115,6 +115,35 @@ function BillSettingsForm({ branchId, branch }: { branchId: string; branch: Bran
             <LogoPicker label="Left logo" logo={bill.logoLeft} onChange={(l) => set("logoLeft", l)} />
             <LogoPicker label="Right logo" logo={bill.logoRight} onChange={(l) => set("logoRight", l)} />
           </div>
+          {(bill.logoLeft || bill.logoRight) && (
+            <>
+              <Field label={`Logo size: ${bill.logoSizeMm} mm`} hint="Height on the bill. Bigger logos leave less room for the shop name between them.">
+                <input
+                  type="range"
+                  min={10}
+                  max={30}
+                  step={1}
+                  value={bill.logoSizeMm}
+                  onChange={(e) => set("logoSizeMm", Number(e.target.value))}
+                  aria-label="Logo size in millimetres"
+                  className="h-10 w-full accent-[var(--primary)]"
+                />
+              </Field>
+              <Field label="Logo position" hint="Level with the top, middle or bottom of the shop details.">
+                <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Logo position">
+                  {(["top", "middle", "bottom"] as const).map((a) => (
+                    <Choice
+                      key={a}
+                      active={bill.logoAlign === a}
+                      onClick={() => set("logoAlign", a)}
+                      title={a === "top" ? "Top" : a === "middle" ? "Middle" : "Bottom"}
+                      text={a === "top" ? "Move up" : a === "middle" ? "Centred" : "Move down"}
+                    />
+                  ))}
+                </div>
+              </Field>
+            </>
+          )}
         </Section>
 
         <Section title="Shop details on the bill" hint="Printed at the top of every bill.">
@@ -176,6 +205,11 @@ function BillSettingsForm({ branchId, branch }: { branchId: string; branch: Bran
           {taxChoice !== "NONE" && (
             <Toggle label="Show the tax rate under each item" checked={bill.showItemTax} onChange={(v) => set("showItemTax", v)} />
           )}
+        </Section>
+
+        <Section title="Totals" hint="One TOTAL line is always printed.">
+          <Toggle label="Subtotal (only when it differs from the total, e.g. after a discount)" checked={bill.showSubtotal} onChange={(v) => set("showSubtotal", v)} />
+          <Toggle label="Payment (Paid cash / card, change)" checked={bill.showPayments} onChange={(v) => set("showPayments", v)} />
         </Section>
 
         <Section title="Footer" hint="Printed at the bottom of a paid bill.">

@@ -6,7 +6,11 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RealtimeGateway } from '../../realtime/realtime.gateway';
-import { buildKotEscPosJob, resolveProfile } from './escpos-receipt';
+import {
+  buildKotEscPosJob,
+  resolveProfile,
+  type PictureJob,
+} from './escpos-receipt';
 import { PrinterNotFoundError } from './escpos-usb';
 import { printsOnClient, sendToBranchPrinter } from './printer-transport';
 
@@ -16,6 +20,9 @@ export interface KotPrintResult {
   unsupportedChars: string[];
   /** Bluetooth printer: the tickets' ESC/POS bytes (base64) for the app to print. */
   escpos?: string;
+  /** Picture printing (Tamil etc.): tickets for the app to draw and print. */
+  pictures?: PictureJob[];
+  pictureVia?: 'bluetooth' | 'server';
 }
 
 // Prints kitchen tickets (KOTs) on the branch's thermal printer.
@@ -100,6 +107,7 @@ export class KotPrintService {
       unsupportedChars: [],
     };
     const clientJobs: Buffer[] = [];
+    const pictures: PictureJob[] = [];
     for (const kot of todo) {
       if (!reprint) {
         const claimed = await this.prisma.kot.updateMany({
@@ -149,7 +157,11 @@ export class KotPrintService {
         },
       });
 
-      if (printsOnClient(branch)) {
+      if (job.picture) {
+        // Picture printing (Tamil etc.): the app draws and prints these.
+        pictures.push(job.picture);
+        result.pictureVia = printsOnClient(branch) ? 'bluetooth' : 'server';
+      } else if (printsOnClient(branch)) {
         // Bluetooth: the Android app prints these (bytes returned below).
         clientJobs.push(job.buffer);
       } else
@@ -205,6 +217,7 @@ export class KotPrintService {
     if (clientJobs.length > 0) {
       result.escpos = Buffer.concat(clientJobs).toString('base64');
     }
+    if (pictures.length > 0) result.pictures = pictures;
     return result;
   }
 }

@@ -454,46 +454,176 @@ describe('bill logos', () => {
       data: Buffer.alloc((width / 8) * height, 0xff).toString('base64'),
     },
   });
-  const printWith = (bill: Partial<BillSettings>) =>
+  const printWith = (bill: Partial<BillSettings>, paperWidthMm = 58) =>
     buildReceiptEscPosJob({
       restaurantName: 'Kaappi',
       currency: 'INR',
       branch,
       order,
-      bill: { ...DEFAULT_BILL_SETTINGS, ...bill },
-      profile: resolveProfile({ paperWidthMm: 58 }),
+      bill: { ...DEFAULT_BILL_SETTINGS, logoSizeMm: 10, ...bill },
+      profile: resolveProfile({ paperWidthMm }),
       ...fmt,
     }).buffer;
   const RASTER = Buffer.from([0x1d, 0x76, 0x30, 0x00]);
+  const band = (job: Buffer) => {
+    const at = job.indexOf(RASTER);
+    const rowBytes = job[at + 4] | (job[at + 5] << 8);
+    const rows = job[at + 6] | (job[at + 7] << 8);
+    const data = job.subarray(at + 8, at + 8 + rowBytes * rows);
+    return {
+      at,
+      rowBytes,
+      rows,
+      row: (y: number) => [...data.subarray(y * rowBytes, (y + 1) * rowBytes)],
+    };
+  };
 
   it('prints the left and right logos as one band at the paper edges', () => {
-    const job = printWith({ logoLeft: logo(16, 4), logoRight: logo(8, 2) });
-    const at = job.indexOf(RASTER);
-    expect(at).toBeGreaterThanOrEqual(0);
-    // 58 mm = 384 dots = 48 bytes a row; as tall as the taller logo
-    expect([...job.subarray(at + 4, at + 8)]).toEqual([48, 0, 4, 0]);
-    const band = job.subarray(at + 8, at + 8 + 48 * 4);
-    const row = (y: number) => [...band.subarray(y * 48, y * 48 + 48)];
-    // left logo: first 2 bytes of every row
-    expect(row(0).slice(0, 3)).toEqual([0xff, 0xff, 0]);
-    // right logo (2 rows) is vertically centred: rows 1 and 2, last byte
-    expect(row(0)[47]).toBe(0);
-    expect(row(1)[47]).toBe(0xff);
-    expect(row(2)[47]).toBe(0xff);
-    expect(row(3)[47]).toBe(0);
-    // the shop name follows as normal text
-    expect(job.subarray(at).includes(Buffer.from('Kaappi'))).toBe(true);
+    // 10 mm = 80 dots tall: these logos are already that size, nothing scaled
+    const job = printWith({ logoLeft: logo(16, 80), logoRight: logo(16, 80) });
+    const b = band(job);
+    expect(b.at).toBeGreaterThanOrEqual(0);
+    expect([b.rowBytes, b.rows]).toEqual([48, 80]); // 58 mm = 384 dots = 48 bytes
+    expect(b.row(0).slice(0, 3)).toEqual([0xff, 0xff, 0]);
+    expect(b.row(79).slice(45)).toEqual([0, 0xff, 0xff]);
+    expect(job.subarray(b.at).includes(Buffer.from('Kaappi'))).toBe(true);
+  });
+
+  it('scales the logo to the chosen size', () => {
+    const b = band(printWith({ logoLeft: logo(16, 40), logoSizeMm: 15 }));
+    expect(b.rows).toBe(120); // 15 mm x 8 dots
+    expect(b.row(0).slice(0, 7)).toEqual([
+      0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0,
+    ]); // 16 -> 48 dots wide
+  });
+
+  it('moves a smaller logo up or down beside a taller one', () => {
+    // the 80-dot logo is drawn at 80 rows; a wide short one keeps its width limit
+    const wide = logo(184, 40); // can't grow wider than half the paper: stays 40 rows
+    const top = band(
+      printWith({ logoLeft: logo(16, 80), logoRight: wide, logoAlign: 'top' }),
+    );
+    expect(top.row(0)[47]).toBe(0xff);
+    expect(top.row(79)[47]).toBe(0);
+    const bottom = band(
+      printWith({
+        logoLeft: logo(16, 80),
+        logoRight: wide,
+        logoAlign: 'bottom',
+      }),
+    );
+    expect(bottom.row(0)[47]).toBe(0);
+    expect(bottom.row(79)[47]).toBe(0xff);
   });
 
   it('one logo only prints just that one', () => {
-    const job = printWith({ logoRight: logo(8, 3) });
-    const at = job.indexOf(RASTER);
-    const band = job.subarray(at + 8, at + 8 + 48 * 3);
-    expect(band[0]).toBe(0);
-    expect(band[47]).toBe(0xff);
+    const b = band(printWith({ logoRight: logo(8, 80) }));
+    expect(b.row(0)[0]).toBe(0);
+    expect(b.row(0)[47]).toBe(0xff);
   });
 
   it('no logos: no picture in the job', () => {
     expect(printWith({}).includes(RASTER)).toBe(false);
+  });
+});
+
+describe('bill totals switches', () => {
+  const simple = { ...order, taxAmount: 0, discountAmount: 0, tipAmount: 0 };
+  const print = (bill: Partial<BillSettings>, o = simple) =>
+    readJob(
+      buildReceiptEscPosJob({
+        restaurantName: 'Kaappi',
+        currency: 'EUR',
+        branch: { ...branch, taxRegime: 'INDIA_GST' as const },
+        order: o,
+        bill: { ...DEFAULT_BILL_SETTINGS, showTaxBreakup: false, ...bill },
+        profile: resolveProfile({ paperWidthMm: 80 }),
+        ...fmt,
+      }).buffer,
+    ).text;
+
+  it('one total: no subtotal when it would only repeat the total', () => {
+    const text = print({});
+    expect(text).not.toContain('Subtotal');
+    expect(text).toContain('TOTAL');
+  });
+
+  it('subtotal when a discount sits between, unless switched off', () => {
+    const withDiscount = { ...simple, discountAmount: 3.4, totalAmount: 28 };
+    expect(print({}, withDiscount)).toContain('Subtotal');
+    expect(print({ showSubtotal: false }, withDiscount)).not.toContain(
+      'Subtotal',
+    );
+  });
+
+  it('payment lines can be switched off', () => {
+    expect(print({})).toContain('Paid (CARD)');
+    expect(print({ showPayments: false })).not.toContain('Paid (CARD)');
+  });
+});
+
+describe('picture printing (Tamil and other scripts)', () => {
+  it('includes the logos in the picture, first', () => {
+    const logo = {
+      image: 'data:image/png;base64,AAAA',
+      raster: {
+        width: 16,
+        height: 80,
+        data: Buffer.alloc(160, 0xff).toString('base64'),
+      },
+    };
+    const j = buildReceiptEscPosJob({
+      restaurantName: 'ஊர் Crumbs',
+      currency: 'INR',
+      branch,
+      order,
+      bill: {
+        ...DEFAULT_BILL_SETTINGS,
+        logoLeft: logo,
+        logoRight: logo,
+        logoSizeMm: 10,
+      },
+      profile: resolveProfile({ paperWidthMm: 80, codepage: 'PICTURE' }),
+      ...fmt,
+    });
+    const first = j.picture?.items[0];
+    expect(first?.k).toBe('image');
+    expect(
+      first && first.k === 'image' ? [first.width, first.height] : null,
+    ).toEqual([576, 80]);
+  });
+
+  const tamilOrder = {
+    ...order,
+    items: [{ ...order.items[1], nameSnapshot: 'பில்டர் காபி' }],
+  };
+  const job = (codepage: string) =>
+    buildReceiptEscPosJob({
+      restaurantName: 'ஊர் Crumbs',
+      currency: 'INR',
+      branch: { ...branch, taxRegime: 'INDIA_GST' as const },
+      order: tamilOrder,
+      profile: resolveProfile({ paperWidthMm: 58, codepage }),
+      ...fmt,
+    });
+
+  it('a text code page cannot print Tamil (question marks, flagged)', () => {
+    const j = job('CP858');
+    expect(j.picture).toBeUndefined();
+    expect(j.unsupportedChars.length).toBeGreaterThan(0);
+  });
+
+  it('the picture character set keeps every line in its original script', () => {
+    const j = job('PICTURE');
+    expect(j.unsupportedChars).toEqual([]);
+    expect(j.picture?.paperWidthMm).toBe(58);
+    const texts = JSON.stringify(j.picture?.items);
+    expect(texts).toContain('ஊர் Crumbs');
+    expect(texts).toContain('பில்டர் காபி');
+    expect(texts).toContain('₹');
+    expect(
+      j.picture?.items.some((i) => i.k === 'row' && i.left === 'TOTAL'),
+    ).toBe(true);
+    expect(j.picture?.cut).toBe(true);
   });
 });
