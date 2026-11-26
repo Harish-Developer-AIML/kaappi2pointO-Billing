@@ -28,6 +28,7 @@ import {
 import { useFloors, type RestaurantTable } from "@/hooks/use-tables";
 import { ApiError } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
+import { OPEN_ITEM_MENU_ID } from "@nodedr-restaurant/types";
 import { NO_TABLE, POS_RESET_EVENT } from "@/lib/pos-events";
 import { useLandscapePhone } from "@/hooks/use-landscape-phone";
 import { cn } from "@/lib/utils";
@@ -127,6 +128,22 @@ function PosPageInner() {
     });
   };
 
+  // "Other item": not on the menu, on this bill only. Same name and price
+  // again adds to the same line.
+  const addOtherItem = (name: string, price: number, quantity: number) => {
+    const key = `open::${name.toLowerCase()}::${price}`;
+    setLines((prev) => {
+      const existing = prev.find((l) => l.key === key);
+      if (existing) {
+        return prev.map((l) => (l.key === key ? { ...l, quantity: l.quantity + quantity } : l));
+      }
+      return [
+        ...prev,
+        { key, menuItemId: OPEN_ITEM_MENU_ID, name, unitPrice: price, quantity, modifierIds: [], openItemName: name },
+      ];
+    });
+  };
+
   const handleSelect = (item: MenuItem) => {
     if (item.modifierGroups.length > 0 || item.halfPrice != null) {
       setPickerItem(item);
@@ -169,18 +186,28 @@ function PosPageInner() {
   const handleSubmit = () => {
     if (checkingTable) return;
     const sentTableId = tableId;
-    const items = lines.map((l) => ({
-      menuItemId: l.menuItemId,
-      quantity: l.quantity,
-      modifierIds: l.modifierIds,
-      ...(l.portion
+    const items = lines.map((l) =>
+      l.openItemName
         ? {
-            portion: l.portion.kind,
-            customPrice: l.portion.customPrice,
-            ...(l.portion.kind === "CUSTOM" ? { customLabel: l.portion.customLabel } : {}),
+            menuItemId: OPEN_ITEM_MENU_ID,
+            quantity: l.quantity,
+            modifierIds: [],
+            openItemName: l.openItemName,
+            customPrice: l.unitPrice,
           }
-        : {}),
-    }));
+        : {
+            menuItemId: l.menuItemId,
+            quantity: l.quantity,
+            modifierIds: l.modifierIds,
+            ...(l.portion
+              ? {
+                  portion: l.portion.kind,
+                  customPrice: l.portion.customPrice,
+                  ...(l.portion.kind === "CUSTOM" ? { customLabel: l.portion.customLabel } : {}),
+                }
+              : {}),
+          },
+    );
 
     if (existingOrder) {
       addOrderItems.mutate(
@@ -370,6 +397,7 @@ function PosPageInner() {
                 onIncrement={(key) => updateQuantity(key, 1)}
                 onDecrement={(key) => updateQuantity(key, -1)}
                 onRemove={removeLine}
+                onAddOther={addOtherItem}
                 onSubmit={handleSubmit}
                 isSubmitting={createOrder.isPending || addOrderItems.isPending}
                 existingOrderNumber={existingOrder?.orderNumber}

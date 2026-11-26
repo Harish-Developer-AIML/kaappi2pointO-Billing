@@ -3,10 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type {
-  MenuCategoryDto,
-  MenuItemDto,
-  ModifierGroupDto,
+import {
+  OPEN_ITEM_CATEGORY,
+  OPEN_ITEM_SKU,
+  type MenuCategoryDto,
+  type MenuItemDto,
+  type ModifierGroupDto,
 } from '@nodedr-restaurant/types';
 import { AuditService } from '../../audit/audit.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -22,7 +24,8 @@ export class MenuService {
 
   listCategories(branchId: string) {
     return this.prisma.menuCategory.findMany({
-      where: { branchId },
+      // The hidden "Other item" placeholder category is never listed.
+      where: { branchId, NOT: { name: OPEN_ITEM_CATEGORY } },
       orderBy: { sortOrder: 'asc' },
       include: { _count: { select: { items: true } } },
     });
@@ -70,7 +73,12 @@ export class MenuService {
 
   listItems(branchId: string, categoryId?: string) {
     return this.prisma.menuItem.findMany({
-      where: { branchId, ...(categoryId ? { categoryId } : {}) },
+      where: {
+        branchId,
+        ...(categoryId ? { categoryId } : {}),
+        // Not the hidden "Other item" placeholder (sku may be null: keep those).
+        OR: [{ sku: null }, { sku: { not: OPEN_ITEM_SKU } }],
+      },
       orderBy: { sortOrder: 'asc' },
       include: {
         category: true,

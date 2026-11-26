@@ -3,6 +3,11 @@
 Kaappi Biller versions. `major.minor.patch`: patch = bug fixes, minor = new
 features, major = big or breaking changes. Bump with `scripts/bump-version.sh`.
 
+## 1.4.1 — 2026-11-26
+
+- Point of Sale: "Other item (not on the menu)" in the cart: type a name,
+  price and quantity for this bill only; the menu is not changed.
+
 ## 1.4.0 — 2026-11-26
 
 - Bill logos: size slider (10–30 mm) and position (top / middle / bottom).

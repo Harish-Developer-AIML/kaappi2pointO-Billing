@@ -50,8 +50,18 @@ export const cartItemSchema = z.object({
   portion: z.enum(["HALF", "FULL", "CUSTOM"]).optional(),
   customPrice: z.number().nonnegative().max(1_000_000).optional(),
   customLabel: z.string().trim().max(40).optional(),
+  // "Other item" (staff only): a dish typed in at the till for this bill only,
+  // never added to the menu. Sent with menuItemId OPEN_ITEM_MENU_ID, this name
+  // and customPrice as its price.
+  openItemName: z.string().trim().min(1).max(60).optional(),
 });
 export type CartItemDto = z.infer<typeof cartItemSchema>;
+
+/** menuItemId of an "Other item" cart line (see openItemName). */
+export const OPEN_ITEM_MENU_ID = "open-item";
+/** The hidden placeholder dish "Other item" lines point to (one per branch). */
+export const OPEN_ITEM_SKU = "__KAAPPI_OPEN_ITEM__";
+export const OPEN_ITEM_CATEGORY = "__kaappi_other_items__";
 
 // --- Delivery (Phase 5) ---------------------------------------------------
 

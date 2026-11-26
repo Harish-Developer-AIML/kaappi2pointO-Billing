@@ -11,6 +11,9 @@ import * as bcrypt from 'bcryptjs';
 import {
   canTransitionKot,
   KOT_STARTED_STATUSES,
+  OPEN_ITEM_CATEGORY,
+  OPEN_ITEM_MENU_ID,
+  OPEN_ITEM_SKU,
   type BillPreviewDto,
   type CartItemDto,
   type CheckoutDto,
@@ -178,6 +181,14 @@ export class OrdersService {
       });
       acceptance = branch?.autoConfirmOrders ? 'ACCEPTED' : 'PENDING';
     }
+    dto = {
+      ...dto,
+      items: await this.resolveOpenItems(
+        branchId,
+        dto.items,
+        channel !== 'ONLINE',
+      ),
+    };
     const menuItemIds = [...new Set(dto.items.map((i) => i.menuItemId))];
     if (channel === 'ONLINE')
       await this.assertOrderableOnWebsite(branchId, menuItemIds);
@@ -460,6 +471,11 @@ export class OrdersService {
       throw new BadRequestException('Order is not open — cannot add items');
     }
 
+    items = await this.resolveOpenItems(
+      branchId,
+      items,
+      !options.websiteOnly && !options.enforceModifierLimits,
+    );
     const menuItemIds = [...new Set(items.map((i) => i.menuItemId))];
     if (options.websiteOnly)
       await this.assertOrderableOnWebsite(branchId, menuItemIds);
@@ -2000,6 +2016,75 @@ export class OrdersService {
     return this.getOrder(branchId, updated.id);
   }
 
+  /**
+   * "Other item" lines (menuItemId OPEN_ITEM_MENU_ID) point at this branch's
+   * hidden placeholder dish, created on first use: off, in a hidden category,
+   * never listed in the menu or the POS (menu.service filters it out). The
+   * line keeps its own typed name and price (buildLine).
+   */
+  private async resolveOpenItems(
+    branchId: string,
+    items: CartItemDto[],
+    staff: boolean,
+  ): Promise<CartItemDto[]> {
+    if (!items.some((i) => i.menuItemId === OPEN_ITEM_MENU_ID)) return items;
+    if (!staff) throw new BadRequestException('Other items are staff-only');
+    for (const i of items) {
+      if (
+        i.menuItemId === OPEN_ITEM_MENU_ID &&
+        (!i.openItemName || i.customPrice == null || i.modifierIds.length > 0)
+      ) {
+        throw new BadRequestException('Other items need a name and a price');
+      }
+    }
+    let placeholder = await this.prisma.menuItem.findFirst({
+      where: { branchId, sku: OPEN_ITEM_SKU },
+      select: { id: true },
+    });
+    if (!placeholder) {
+      const category =
+        (await this.prisma.menuCategory.findFirst({
+          where: { branchId, name: OPEN_ITEM_CATEGORY },
+          select: { id: true },
+        })) ??
+        (await this.prisma.menuCategory.create({
+          data: {
+            branchId,
+            name: OPEN_ITEM_CATEGORY,
+            isActive: false,
+            showOnWebsite: false,
+            sortOrder: 9999,
+          },
+          select: { id: true },
+        }));
+      // Same tax as most of the menu, so the bill's GST stays consistent.
+      const rates = await this.prisma.menuItem.groupBy({
+        by: ['taxRatePercent'],
+        where: { branchId, isActive: true },
+        _count: { _all: true },
+        orderBy: { _count: { taxRatePercent: 'desc' } },
+        take: 1,
+      });
+      placeholder = await this.prisma.menuItem.create({
+        data: {
+          branchId,
+          categoryId: category.id,
+          name: 'Other item',
+          sku: OPEN_ITEM_SKU,
+          price: 0,
+          taxRatePercent: rates[0]?.taxRatePercent ?? 0,
+          isActive: false,
+          sortOrder: 9999,
+        },
+        select: { id: true },
+      });
+    }
+    const id = placeholder.id;
+    return items.map((i) =>
+      i.menuItemId === OPEN_ITEM_MENU_ID ? { ...i, menuItemId: id } : i,
+    );
+  }
+
   private buildLine(
     cartItem: CartItemDto,
     menuItemById: Map<string, Prisma.MenuItemGetPayload<Record<string, never>>>,
@@ -2014,7 +2099,15 @@ export class OrdersService {
     // snapshot, so KOTs, receipts, KDS and reports all show "(Half)" etc.
     let portionBase = Number(menuItem.price);
     let portionSuffix = '';
-    if (cartItem.portion === 'HALF' || cartItem.portion === 'FULL') {
+    let lineName = menuItem.name;
+    if (cartItem.openItemName) {
+      // "Other item": the typed name and price, on this bill only.
+      if (!allowCustomPortion || cartItem.customPrice == null) {
+        throw new BadRequestException('Other items need a name and a price');
+      }
+      portionBase = cartItem.customPrice;
+      lineName = cartItem.openItemName;
+    } else if (cartItem.portion === 'HALF' || cartItem.portion === 'FULL') {
       if (menuItem.halfPrice == null) {
         throw new BadRequestException(
           `${menuItem.name} has no half/full portions`,
@@ -2071,7 +2164,7 @@ export class OrdersService {
       cartItem,
       menuItem: {
         id: menuItem.id,
-        name: menuItem.name + portionSuffix,
+        name: lineName + portionSuffix,
         price: unitPriceInclusive - round2(modifierTotal),
         taxRatePercent,
       },

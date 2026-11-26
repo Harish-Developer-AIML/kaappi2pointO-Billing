@@ -7,6 +7,8 @@ export interface CartLine {
   modifierIds: string[];
   modifierLabel?: string;
   portion?: Portion;
+  /** "Other item": typed in at the till, on this bill only (not on the menu). */
+  openItemName?: string;
 }
 
 export type PortionKind = "HALF" | "FULL" | "CUSTOM";

@@ -16,6 +16,7 @@ import type { RestaurantTable } from "@/hooks/use-tables";
 import { isFeatureEnabled } from "@/components/layout/nav-items";
 import { formatCurrency } from "@/lib/format";
 import { NO_TABLE } from "@/lib/pos-events";
+import { OtherItemDialog } from "@/components/pos/other-item-dialog";
 import { subtotalOf } from "@/lib/pricing-preview";
 
 export type PosOrderType = "DINE_IN" | "TAKEAWAY" | "DELIVERY";
@@ -36,6 +37,7 @@ export function CartPanel({
   onDecrement,
   onRemove,
   onSubmit,
+  onAddOther,
   isSubmitting,
   existingOrderNumber,
   existingItems,
@@ -60,6 +62,8 @@ export function CartPanel({
   onDecrement: (key: string) => void;
   onRemove: (key: string) => void;
   onSubmit: () => void;
+  /** "Other item" (not on the menu) for this bill only. */
+  onAddOther?: (name: string, price: number, quantity: number) => void;
   isSubmitting: boolean;
   existingOrderNumber?: string;
   /** Items already on the table's open bill (sent to the kitchen). */
@@ -220,6 +224,11 @@ export function CartPanel({
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">
             <ShoppingCart className="h-8 w-8 opacity-40" />
             <p className="text-sm">{existingOrderNumber ? "Add items from the menu for a new round" : "Cart is empty"}</p>
+            {onAddOther && (
+              <div className="mt-2 w-full max-w-xs">
+                <OtherItemDialog onAdd={onAddOther} />
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-col divide-y divide-border">
@@ -263,6 +272,11 @@ export function CartPanel({
                 </div>
               </div>
             ))}
+            {onAddOther && (
+              <div className="py-3">
+                <OtherItemDialog onAdd={onAddOther} />
+              </div>
+            )}
           </div>
         )}
       </div>
