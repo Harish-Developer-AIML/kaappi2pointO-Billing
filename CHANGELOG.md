@@ -3,6 +3,13 @@
 Kaappi Biller versions. `major.minor.patch`: patch = bug fixes, minor = new
 features, major = big or breaking changes. Bump with `scripts/bump-version.sh`.
 
+## 1.4.2 — 2026-11-28
+
+- Point of Sale: "+ Other item" chip after the last category (the cart button stays).
+- Cart: only the item list scrolls, so Send to kitchen / payment always stays on screen.
+- Dropdowns show names, not internal ids: menu category and kitchen station, combo
+  dishes, staff role, reservation table, inventory supplier and ingredient.
+
 ## 1.4.1 — 2026-11-26
 
 - Point of Sale: "Other item (not on the menu)" in the cart: type a name,

@@ -124,7 +124,7 @@ export function AddStaffDialog() {
             <Label>Role</Label>
             <Select value={roleId} onValueChange={(v) => setRoleId(v ?? "")}>
               <SelectTrigger>
-                <SelectValue placeholder="Select role" />
+                <SelectValue placeholder="Select role">{(value: string | null) => roles?.find((r) => r.id === value)?.label ?? "Select role"}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {roles?.map((role) => (

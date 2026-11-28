@@ -82,7 +82,7 @@ export function CreatePurchaseRequestDialog({ branchId }: { branchId: string | n
                     onValueChange={(v) => updateRow(index, { ingredientId: v ?? "" })}
                   >
                     <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Ingredient" />
+                      <SelectValue placeholder="Ingredient">{(value: string | null) => ingredients?.find((i) => i.id === value)?.name ?? "Ingredient"}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {ingredients?.map((i) => (

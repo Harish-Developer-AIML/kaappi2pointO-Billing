@@ -68,7 +68,7 @@ export function CreateInvoiceDialog({ branchId }: { branchId: string | null }) {
             <Label>Supplier</Label>
             <Select value={supplierId} onValueChange={(v) => setSupplierId(v ?? "")}>
               <SelectTrigger>
-                <SelectValue placeholder="Select a supplier" />
+                <SelectValue placeholder="Select a supplier">{(value: string | null) => suppliers?.find((s) => s.id === value)?.name ?? "Select a supplier"}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {suppliers?.map((s) => (

@@ -351,12 +351,14 @@ function PosPageInner() {
           )}
         >
           <Card className={cn("min-h-0 overflow-hidden", sideBySide ? "p-3" : "p-3 sm:p-5")}>
-            <ProductGrid branchId={branchId} onSelect={handleSelect} />
+            <ProductGrid branchId={branchId} onSelect={handleSelect} onAddOther={addOtherItem} />
           </Card>
 
           <Card
             className={cn(
-              "min-h-0 overflow-hidden p-5",
+              // A column: "Back to menu" on top, the cart below takes the rest,
+              // so its Send to kitchen / Bill button never falls off screen.
+              "flex min-h-0 flex-col overflow-hidden p-5",
               sideBySide
                 ? "p-3"
                 : cartOpen
@@ -379,6 +381,7 @@ function PosPageInner() {
               <ChevronLeft className="h-4 w-4" />
               Back to menu
             </button>
+            <div className="flex min-h-0 flex-1 flex-col">
             {activeOrder ? (
               <CheckoutPanel
                 order={activeOrder}
@@ -419,6 +422,7 @@ function PosPageInner() {
                 onScheduledForChange={setScheduledFor}
               />
             )}
+            </div>
           </Card>
         </div>
       )}

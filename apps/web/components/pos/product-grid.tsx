@@ -1,6 +1,8 @@
 "use client";
 
+import { Plus } from "lucide-react";
 import { useState } from "react";
+import { OtherItemDialog } from "@/components/pos/other-item-dialog";
 import { Input } from "@/components/ui/input";
 import { QueryError } from "@/components/ui/query-error";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,9 +13,12 @@ import { cn } from "@/lib/utils";
 export function ProductGrid({
   branchId,
   onSelect,
+  onAddOther,
 }: {
   branchId: string | null;
   onSelect: (item: MenuItem) => void;
+  /** "Other item" (not on the menu): a chip after the last category. */
+  onAddOther?: (name: string, price: number, quantity: number) => void;
 }) {
   const { data: categories } = useCategories(branchId);
   const [activeCategoryId, setActiveCategoryId] = useState<string | undefined>(undefined);
@@ -60,6 +65,20 @@ export function ProductGrid({
               </button>
             );
           })}
+          {onAddOther && (
+            <OtherItemDialog
+              onAdd={onAddOther}
+              trigger={
+                <button
+                  type="button"
+                  className="flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-dashed border-primary/50 bg-card px-4 text-[15px] font-semibold text-primary active:bg-secondary"
+                >
+                  <Plus className="h-4 w-4" />
+                  Other item
+                </button>
+              }
+            />
+          )}
         </nav>
       )}
 
@@ -93,6 +112,20 @@ export function ProductGrid({
               </button>
             );
           })}
+          {onAddOther && (
+            <OtherItemDialog
+              onAdd={onAddOther}
+              trigger={
+                <button
+                  type="button"
+                  className="mt-1 flex min-h-10 items-center gap-1.5 rounded-lg border border-dashed border-primary/50 px-3 py-2 text-left text-sm font-semibold text-primary hover:bg-secondary"
+                >
+                  <Plus className="h-4 w-4" />
+                  Other item
+                </button>
+              }
+            />
+          )}
         </nav>
       )}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">

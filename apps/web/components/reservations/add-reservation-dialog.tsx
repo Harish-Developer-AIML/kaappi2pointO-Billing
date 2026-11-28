@@ -134,7 +134,7 @@ export function AddReservationDialog({
             <Label>Table (optional)</Label>
             <Select value={tableId} onValueChange={(v) => setTableId(v ?? "")}>
               <SelectTrigger>
-                <SelectValue placeholder="No table assigned yet" />
+                <SelectValue placeholder="No table assigned yet">{(value: string | null) => (() => { const t = tables.find((x) => x.id === value); return t ? (t.name ?? `Table ${t.number}`) : undefined; })() ?? "No table assigned yet"}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {tables.map((t) => (

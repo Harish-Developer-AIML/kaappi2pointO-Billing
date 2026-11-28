@@ -2,6 +2,7 @@
 
 import { Plus } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,14 @@ import { formatCurrency } from "@/lib/format";
  * a one-off). Name, price and quantity go on this bill only; the menu is not
  * changed. The order line carries its own name and price (openItemName).
  */
-export function OtherItemDialog({ onAdd }: { onAdd: (name: string, price: number, quantity: number) => void }) {
+export function OtherItemDialog({
+  onAdd,
+  trigger,
+}: {
+  onAdd: (name: string, price: number, quantity: number) => void;
+  /** The button that opens it (default: a full-width dashed button for the cart). */
+  trigger?: React.ReactElement;
+}) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
@@ -33,6 +41,7 @@ export function OtherItemDialog({ onAdd }: { onAdd: (name: string, price: number
     e.preventDefault();
     if (!valid) return;
     onAdd(name.trim().slice(0, 60), Math.round(p * 100) / 100, q);
+    toast.success(`${q} × ${name.trim()} added to the bill`);
     setOpen(false);
     reset();
   };
@@ -47,10 +56,12 @@ export function OtherItemDialog({ onAdd }: { onAdd: (name: string, price: number
     >
       <DialogTrigger
         render={
-          <Button type="button" variant="outline" className="h-11 w-full border-dashed font-semibold">
-            <Plus className="h-4 w-4" />
-            Other item (not on the menu)
-          </Button>
+          trigger ?? (
+            <Button type="button" variant="outline" className="h-11 w-full border-dashed font-semibold">
+              <Plus className="h-4 w-4" />
+              Other item (not on the menu)
+            </Button>
+          )
         }
       />
       <DialogContent className="sm:max-w-sm">

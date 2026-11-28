@@ -198,7 +198,11 @@ export function AddItemDialog({
             <Label>Category</Label>
             <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? "")}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select category" />
+                <SelectValue placeholder="Select category">
+                  {(value: string | null) =>
+                    categories.find((c) => c.id === value)?.name ?? "Select category"
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {categories.map((c) => (
@@ -258,7 +262,9 @@ export function AddItemDialog({
             <Label>Kitchen station</Label>
             <Select value={stationId} onValueChange={(v) => setStationId(v ?? "")}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="None" />
+                <SelectValue placeholder="None">
+                  {(value: string | null) => stations?.find((st) => st.id === value)?.name ?? "None"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {stations?.map((s) => (

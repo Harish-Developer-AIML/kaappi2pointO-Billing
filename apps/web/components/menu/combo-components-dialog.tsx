@@ -94,7 +94,9 @@ function ComboRowsEditor({
               onValueChange={(v) => v && updateRow(index, { componentItemId: v })}
             >
               <SelectTrigger className="flex-1">
-                <SelectValue />
+                <SelectValue>
+                  {(value: string | null) => candidates.find((c) => c.id === value)?.name ?? "Choose an item"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {candidates.map((c) => (

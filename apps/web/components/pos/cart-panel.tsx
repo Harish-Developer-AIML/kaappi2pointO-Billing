@@ -89,7 +89,7 @@ export function CartPanel({
     lines.length > 0 && (orderType !== "DINE_IN" || !!tableId) && deliveryReady && !isSubmitting && !checkingTable;
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       <Tabs value={orderType} onValueChange={(v) => onOrderTypeChange(v as PosOrderType)}>
         <TabsList className="w-full">
           <TabsTrigger value="DINE_IN" className="flex-1">
@@ -219,7 +219,8 @@ export function CartPanel({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto">
+      {/* Only the item list scrolls; the totals and button stay in view. */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {lines.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">
             <ShoppingCart className="h-8 w-8 opacity-40" />
